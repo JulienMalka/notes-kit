@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/notes-kit-core",
+    "crates/notes-kit-server",
+    "crates/notes-kit-org",
+    "crates/notes-kit-app",
+    "examples/minimal",
+]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

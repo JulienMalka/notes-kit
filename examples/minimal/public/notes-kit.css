@@ -1,0 +1,649 @@
+/**
+ * notes-kit Default CSS
+ *
+ * All styles use the .onk-* prefix and CSS variables for customization.
+ *
+ * Override CSS variables in :root to customize the theme.
+ */
+
+/* =================================================================
+   CSS Variables
+   ================================================================= */
+
+:root {
+  --onk-bg-base: #1e1e2e;
+  --onk-bg-surface: #313244;
+  --onk-bg-overlay: #45475a;
+
+  --onk-text-primary: #cdd6f4;
+  --onk-text-secondary: #a6adc8;
+  --onk-text-muted: #6c7086;
+
+  --onk-accent: #89b4fa;
+  --onk-accent-bright: #b4befe;
+
+  --onk-border: #45475a;
+  --onk-border-bright: #585b70;
+
+  --onk-error: #f38ba8;
+  --onk-success: #a6e3a1;
+
+  --onk-spacing-xs: 0.25rem;
+  --onk-spacing-sm: 0.5rem;
+  --onk-spacing-md: 1rem;
+  --onk-spacing-lg: 1.5rem;
+  --onk-spacing-xl: 2rem;
+
+  --onk-radius-sm: 0.25rem;
+  --onk-radius-md: 0.5rem;
+  --onk-radius-lg: 0.75rem;
+
+  --onk-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
+  --onk-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.15);
+  --onk-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.2);
+  --onk-shadow-xl: 0 25px 50px rgba(0, 0, 0, 0.5);
+
+  --onk-font-sans: system-ui, -apple-system, sans-serif;
+  --onk-font-mono: ui-monospace, monospace;
+  --onk-font-size-xs: 0.75rem;
+  --onk-font-size-sm: 0.875rem;
+  --onk-font-size-md: 1rem;
+  --onk-font-size-lg: 1.125rem;
+
+  --onk-transition-fast: 150ms ease;
+  --onk-transition-normal: 200ms ease;
+}
+
+/* =================================================================
+   Base
+   ================================================================= */
+
+body {
+  margin: 0;
+  font-family: var(--onk-font-sans);
+  background: var(--onk-bg-base);
+  color: var(--onk-text-primary);
+}
+
+.onk-main {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: var(--onk-spacing-xl);
+}
+
+/* =================================================================
+   Header
+   ================================================================= */
+
+.onk-header {
+  border-bottom: 1px solid var(--onk-border);
+  background: var(--onk-bg-surface);
+}
+
+.onk-header-content {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: var(--onk-spacing-md) var(--onk-spacing-xl);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.onk-header-brand {
+  color: var(--onk-text-primary);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: var(--onk-font-size-lg);
+  transition: color var(--onk-transition-fast);
+}
+
+.onk-header-brand:hover {
+  color: var(--onk-accent);
+}
+
+.onk-header-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--onk-spacing-sm);
+}
+
+.onk-header-nav-link,
+.onk-header-search-btn {
+  color: var(--onk-text-secondary);
+  text-decoration: none;
+  font-size: var(--onk-font-size-sm);
+  font-weight: 500;
+  padding: var(--onk-spacing-sm) var(--onk-spacing-md);
+  border-radius: var(--onk-radius-md);
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: all var(--onk-transition-fast);
+}
+
+.onk-header-nav-link:hover,
+.onk-header-search-btn:hover {
+  color: var(--onk-accent);
+  background: var(--onk-bg-overlay);
+}
+
+/* =================================================================
+   Notes List
+   ================================================================= */
+
+.onk-notes-list-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--onk-accent-bright);
+  margin: 0 0 var(--onk-spacing-xl);
+}
+
+.onk-notes-list-items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.onk-notes-list-item {
+  border-bottom: 1px solid var(--onk-border);
+  transition: background var(--onk-transition-normal);
+}
+
+.onk-notes-list-item:hover {
+  background: rgba(137, 180, 250, 0.05);
+}
+
+.onk-notes-list-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--onk-spacing-md) var(--onk-spacing-sm);
+  color: var(--onk-text-primary);
+  text-decoration: none;
+  transition: color var(--onk-transition-fast);
+}
+
+.onk-notes-list-link:hover {
+  color: var(--onk-accent);
+}
+
+.onk-notes-list-item-title {
+  font-weight: 500;
+}
+
+.onk-notes-list-item-meta {
+  display: flex;
+  gap: var(--onk-spacing-sm);
+  font-size: var(--onk-font-size-xs);
+  color: var(--onk-text-muted);
+}
+
+.onk-notes-list-item-sig {
+  color: var(--onk-accent);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.onk-notes-list-loading,
+.onk-notes-list-empty {
+  padding: var(--onk-spacing-xl);
+  color: var(--onk-text-secondary);
+  text-align: center;
+}
+
+.onk-notes-list-error {
+  color: var(--onk-error);
+  padding: var(--onk-spacing-md);
+}
+
+/* =================================================================
+   Note Page
+   ================================================================= */
+
+.onk-note-page {
+  width: 100%;
+}
+
+.onk-note-header {
+  margin-bottom: var(--onk-spacing-xl);
+}
+
+.onk-note-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--onk-accent);
+  margin: 0 0 var(--onk-spacing-sm);
+  line-height: 1.2;
+}
+
+.onk-note-date {
+  color: var(--onk-text-secondary);
+  font-size: var(--onk-font-size-sm);
+}
+
+.onk-note-signature {
+  display: inline-block;
+  margin-left: var(--onk-spacing-sm);
+  padding: var(--onk-spacing-xs) var(--onk-spacing-sm);
+  font-size: var(--onk-font-size-xs);
+  font-weight: 600;
+  color: var(--onk-accent);
+  background: rgba(137, 180, 250, 0.1);
+  border-radius: var(--onk-radius-sm);
+  text-transform: uppercase;
+}
+
+.onk-note-content {
+  line-height: 1.7;
+}
+
+.onk-note-content h1,
+.onk-note-content h2,
+.onk-note-content h3,
+.onk-note-content h4 {
+  color: var(--onk-accent-bright);
+  margin-top: var(--onk-spacing-xl);
+  margin-bottom: var(--onk-spacing-md);
+}
+
+.onk-note-content a {
+  color: var(--onk-accent);
+  text-decoration: none;
+}
+
+.onk-note-content a:hover {
+  text-decoration: underline;
+}
+
+.onk-note-content code {
+  font-family: var(--onk-font-mono);
+  background: var(--onk-bg-surface);
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--onk-radius-sm);
+  font-size: var(--onk-font-size-sm);
+}
+
+.onk-note-content pre {
+  background: var(--onk-bg-surface);
+  border: 1px solid var(--onk-border);
+  border-radius: var(--onk-radius-md);
+  padding: var(--onk-spacing-md);
+  overflow-x: auto;
+}
+
+.onk-note-content pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.onk-note-content blockquote {
+  border-left: 3px solid var(--onk-accent);
+  margin: var(--onk-spacing-md) 0;
+  padding: var(--onk-spacing-sm) var(--onk-spacing-md);
+  color: var(--onk-text-secondary);
+  background: rgba(137, 180, 250, 0.05);
+}
+
+.onk-note-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--onk-spacing-md) 0;
+}
+
+.onk-note-content th,
+.onk-note-content td {
+  padding: var(--onk-spacing-sm) var(--onk-spacing-md);
+  border: 1px solid var(--onk-border);
+  text-align: left;
+}
+
+.onk-note-content th {
+  background: var(--onk-bg-surface);
+  font-weight: 600;
+}
+
+.onk-note-loading {
+  padding: var(--onk-spacing-xl);
+  color: var(--onk-text-secondary);
+}
+
+.onk-note-error {
+  color: var(--onk-error);
+  padding: var(--onk-spacing-md);
+  border: 1px solid var(--onk-error);
+  border-radius: var(--onk-radius-md);
+  background: rgba(243, 139, 168, 0.05);
+}
+
+/* =================================================================
+   Task Cards (DONE headlines)
+   ================================================================= */
+
+.onk-task-card {
+  background: var(--onk-bg-surface);
+  border: 1px solid var(--onk-border);
+  border-left: 3px solid var(--onk-success);
+  border-radius: var(--onk-radius-md);
+  padding: var(--onk-spacing-md) var(--onk-spacing-lg);
+  margin: var(--onk-spacing-md) 0;
+}
+
+.onk-task-header {
+  display: flex;
+  align-items: center;
+  gap: var(--onk-spacing-sm);
+}
+
+.onk-task-check {
+  color: var(--onk-success);
+  font-weight: 700;
+  font-size: var(--onk-font-size-lg);
+  flex-shrink: 0;
+}
+
+.onk-task-title {
+  color: var(--onk-text-secondary);
+  flex: 1;
+}
+
+.onk-task-clock {
+  font-size: var(--onk-font-size-xs);
+  color: var(--onk-text-muted);
+  background: var(--onk-bg-overlay);
+  padding: var(--onk-spacing-xs) var(--onk-spacing-sm);
+  border-radius: var(--onk-radius-sm);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.onk-task-body {
+  margin-top: var(--onk-spacing-sm);
+  padding-top: var(--onk-spacing-sm);
+  border-top: 1px solid var(--onk-border);
+  color: var(--onk-text-secondary);
+  font-size: var(--onk-font-size-sm);
+}
+
+.onk-task-body p {
+  margin: var(--onk-spacing-xs) 0;
+}
+
+.onk-task-children {
+  margin-top: var(--onk-spacing-sm);
+  padding-left: var(--onk-spacing-md);
+}
+
+.onk-task-children .onk-task-card {
+  border-left-width: 2px;
+}
+
+/* =================================================================
+   Backlinks
+   ================================================================= */
+
+.onk-note-backlinks {
+  margin-top: var(--onk-spacing-xl);
+  padding-top: var(--onk-spacing-xl);
+  border-top: 1px solid var(--onk-border);
+}
+
+.onk-note-backlinks-title {
+  font-size: var(--onk-font-size-sm);
+  font-weight: 700;
+  color: var(--onk-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 var(--onk-spacing-sm);
+}
+
+.onk-note-backlinks-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.onk-note-backlinks-item {
+  border-left: 2px solid transparent;
+  transition: all var(--onk-transition-normal);
+}
+
+.onk-note-backlinks-item:hover {
+  border-left-color: var(--onk-accent);
+  background: rgba(137, 180, 250, 0.05);
+}
+
+.onk-note-backlinks-item a {
+  display: block;
+  padding: var(--onk-spacing-sm);
+  color: var(--onk-text-primary);
+  text-decoration: none;
+  font-size: var(--onk-font-size-sm);
+  transition: color var(--onk-transition-fast);
+}
+
+.onk-note-backlinks-item a:hover {
+  color: var(--onk-accent);
+}
+
+/* =================================================================
+   Search Modal
+   ================================================================= */
+
+.onk-search-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 50;
+  display: grid;
+  place-items: start center;
+  padding-top: 15vh;
+}
+
+.onk-search-modal {
+  background: var(--onk-bg-surface);
+  border-radius: var(--onk-radius-lg);
+  box-shadow: var(--onk-shadow-xl);
+  border: 1px solid var(--onk-border);
+  width: min(90vw, 36rem);
+  overflow: hidden;
+}
+
+.onk-search-input {
+  width: 100%;
+  padding: var(--onk-spacing-lg);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--onk-border);
+  color: var(--onk-text-primary);
+  font-size: var(--onk-font-size-lg);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.onk-search-input::placeholder {
+  color: var(--onk-text-muted);
+}
+
+.onk-search-results {
+  max-height: 50vh;
+  overflow-y: auto;
+  list-style: none;
+  padding: var(--onk-spacing-sm);
+  margin: 0;
+}
+
+.onk-search-result {
+  padding: var(--onk-spacing-md);
+  border-radius: var(--onk-radius-md);
+  cursor: pointer;
+  transition: background var(--onk-transition-fast);
+}
+
+.onk-search-result:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.onk-search-result-selected {
+  background: rgba(137, 180, 250, 0.15);
+}
+
+.onk-search-result-title {
+  display: block;
+  font-weight: 500;
+  color: var(--onk-text-primary);
+}
+
+.onk-search-result-snippet {
+  display: block;
+  font-size: var(--onk-font-size-sm);
+  color: var(--onk-text-secondary);
+  margin-top: var(--onk-spacing-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =================================================================
+   Login Modal
+   ================================================================= */
+
+.onk-login-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.onk-login-modal {
+  background: var(--onk-bg-surface);
+  border: 1px solid var(--onk-border-bright);
+  border-radius: var(--onk-radius-lg);
+  box-shadow: var(--onk-shadow-xl);
+  padding: var(--onk-spacing-xl);
+  width: min(90%, 28rem);
+}
+
+.onk-login-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--onk-accent-bright);
+  margin: 0 0 var(--onk-spacing-md);
+}
+
+.onk-login-prompt {
+  color: var(--onk-text-secondary);
+  margin: 0 0 var(--onk-spacing-md);
+  font-size: var(--onk-font-size-sm);
+}
+
+.onk-login-error {
+  color: var(--onk-error);
+  background: rgba(243, 139, 168, 0.1);
+  border: 1px solid var(--onk-error);
+  padding: var(--onk-spacing-sm) var(--onk-spacing-md);
+  border-radius: var(--onk-radius-sm);
+  margin: 0 0 var(--onk-spacing-md);
+  font-size: var(--onk-font-size-sm);
+}
+
+.onk-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--onk-spacing-md);
+}
+
+.onk-login-input {
+  padding: var(--onk-spacing-md);
+  background: var(--onk-bg-base);
+  border: 1px solid var(--onk-border);
+  border-radius: var(--onk-radius-md);
+  color: var(--onk-text-primary);
+  font-size: var(--onk-font-size-md);
+  outline: none;
+  transition: border-color var(--onk-transition-fast);
+}
+
+.onk-login-input:focus {
+  border-color: var(--onk-accent);
+}
+
+.onk-login-actions {
+  display: flex;
+  gap: var(--onk-spacing-md);
+  margin-top: var(--onk-spacing-sm);
+}
+
+.onk-login-submit,
+.onk-login-cancel {
+  flex: 1;
+  padding: var(--onk-spacing-md);
+  font-size: var(--onk-font-size-md);
+  font-weight: 600;
+  border: 1px solid;
+  border-radius: var(--onk-radius-md);
+  cursor: pointer;
+  transition: all var(--onk-transition-fast);
+}
+
+.onk-login-submit {
+  background: var(--onk-accent);
+  border-color: var(--onk-accent);
+  color: var(--onk-bg-base);
+}
+
+.onk-login-submit:hover {
+  background: var(--onk-accent-bright);
+  border-color: var(--onk-accent-bright);
+}
+
+.onk-login-cancel {
+  background: transparent;
+  border-color: var(--onk-border);
+  color: var(--onk-text-primary);
+}
+
+.onk-login-cancel:hover {
+  border-color: var(--onk-text-secondary);
+}
+
+/* =================================================================
+   Auth Indicator
+   ================================================================= */
+
+.onk-auth-indicator {
+  position: fixed;
+  bottom: var(--onk-spacing-md);
+  right: var(--onk-spacing-md);
+  background: var(--onk-bg-surface);
+  border: 1px solid var(--onk-border);
+  border-radius: var(--onk-radius-lg);
+  padding: var(--onk-spacing-sm) var(--onk-spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--onk-spacing-sm);
+  font-size: var(--onk-font-size-xs);
+  box-shadow: var(--onk-shadow-md);
+  z-index: 40;
+}
+
+.onk-auth-indicator-email {
+  color: var(--onk-text-secondary);
+}
+
+.onk-auth-indicator-logout {
+  color: var(--onk-accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--onk-font-size-xs);
+  padding: 0;
+  transition: color var(--onk-transition-fast);
+}
+
+.onk-auth-indicator-logout:hover {
+  color: var(--onk-error);
+}

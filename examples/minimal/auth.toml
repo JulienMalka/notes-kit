@@ -1,0 +1,13 @@
+default_signature = "private"
+
+[anonymous]
+grants = ["public"]
+
+[[levels]]
+name = "private"
+grants = ["public", "private", "phd" ]
+
+[admin]
+email = "admin@example.com"
+password = "admin"
+assigned_levels = ["private"]

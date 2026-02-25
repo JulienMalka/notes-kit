@@ -1,0 +1,7 @@
+#+TITLE: Home
+
+Welcome to your notes.
+
+* Recent Notes
+
+Browse all notes at [[/notes][the notes list]].

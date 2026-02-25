@@ -1,0 +1,53 @@
+[package]
+name = "minimal-notes-app"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "minimal-notes-app"
+path = "src/main.rs"
+required-features = ["ssr"]
+
+[dependencies]
+notes-kit-app = { path = "../../crates/notes-kit-app" }
+notes-kit-server = { path = "../../crates/notes-kit-server", optional = true }
+notes-kit-org = { path = "../../crates/notes-kit-org" }
+leptos = "0.8"
+leptos_meta = "0.8"
+orgize = { git = "https://github.com/PoiScript/orgize", rev = "5f26c94dcec2a33b37b1c880ace053b29b5d021e" }
+tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
+console_error_panic_hook = { version = "0.1", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+
+[features]
+default = []
+hydrate = [
+    "leptos/hydrate",
+    "notes-kit-app/hydrate",
+    "dep:console_error_panic_hook",
+    "dep:wasm-bindgen",
+]
+ssr = [
+    "leptos/ssr",
+    "leptos_meta/ssr",
+    "notes-kit-app/ssr",
+    "dep:notes-kit-server",
+    "dep:tokio",
+]
+
+[package.metadata.leptos]
+output-name = "minimal-notes-app"
+bin-target = "minimal-notes-app"
+site-root = "target/site"
+site-pkg-dir = "pkg"
+assets-dir = "public"
+site-addr = "127.0.0.1:3000"
+reload-port = 3001
+env = "DEV"
+bin-features = ["ssr"]
+bin-default-features = false
+lib-features = ["hydrate"]
+lib-default-features = false

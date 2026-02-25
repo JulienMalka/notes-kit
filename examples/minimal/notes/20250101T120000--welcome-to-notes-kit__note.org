@@ -1,0 +1,16 @@
+#+TITLE: Welcome to Notes Kit
+#+DATE: [2025-01-01]
+#+FILETAGS: :demo:welcome:
+
+This is a sample note to test the notes-kit application.
+
+* Features
+
+- Clean trait-based architecture
+- Org-mode rendering
+- Full-text search
+- Authentication and authorization
+
+* Links
+
+See also [[denote:20250115T090000][Getting Started]].

@@ -1,0 +1,18 @@
+#+TITLE: Getting Started
+#+DATE: [2025-01-15]
+#+FILETAGS: :docs:guide:
+
+* Installation
+
+Clone the repository and run the example:
+
+#+begin_src shell
+cd examples/minimal
+cargo leptos watch
+#+end_src
+
+* Configuration
+
+Set the =NOTES_DIR= environment variable to point to your notes directory.
+
+See also [[denote:20250101T120000][Welcome to Notes Kit]].

@@ -1,0 +1,11 @@
+[package]
+name = "notes-kit-org"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+notes-kit-core = { path = "../notes-kit-core" }
+orgize = { git = "https://github.com/PoiScript/orgize", rev = "5f26c94dcec2a33b37b1c880ace053b29b5d021e" }
+leptos = "0.8"
+leptos_router = "0.8"
+serde = { workspace = true }

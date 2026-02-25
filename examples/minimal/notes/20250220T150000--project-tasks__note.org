@@ -1,0 +1,29 @@
+#+TITLE: Project Tasks
+#+DATE: [2025-02-20]
+#+FILETAGS: :tasks:
+
+* DONE Mail Martin
+CLOSED: [2025-12-17 mer. 11:30]
+:PROPERTIES:
+:ARCHIVETIME: 2025-12-17 mer. 11:30
+:ARCHIVEFILE: ~/dev/todos/these.org
+:ARCHIVEOLPATH: Missions
+:ARCHIVECATEGORY: these
+:ARCHIVETODO: DONE
+:END:
+:LOGBOOK:
+CLOCK: [2025-12-17 mer. 11:00]--[2025-12-17 mer. 11:15] =>  0:15
+:END:
+
+* DONE Review pull request
+CLOSED: [2025-12-18 jeu. 14:00]
+:LOGBOOK:
+CLOCK: [2025-12-18 jeu. 13:00]--[2025-12-18 jeu. 14:00] =>  1:00
+CLOCK: [2025-12-17 mer. 16:30]--[2025-12-17 mer. 17:15] =>  0:45
+:END:
+
+Reviewed the authentication changes.
+
+* TODO Write documentation
+
+Still pending.

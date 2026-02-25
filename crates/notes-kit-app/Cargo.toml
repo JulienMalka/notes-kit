@@ -1,0 +1,44 @@
+[package]
+name = "notes-kit-app"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+notes-kit-core = { path = "../notes-kit-core" }
+notes-kit-org = { path = "../notes-kit-org" }
+notes-kit-server = { path = "../notes-kit-server", optional = true }
+
+leptos = "0.8"
+leptos_router = "0.8"
+leptos_meta = "0.8"
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+leptos_axum = { version = "0.8", optional = true }
+
+console_error_panic_hook = { version = "0.1", optional = true }
+wasm-bindgen = { version = "=0.2.108", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+web-sys = { version = "0.3", optional = true, features = [
+    "KeyboardEvent", "Window", "HtmlInputElement",
+    "EventSource", "MessageEvent",
+] }
+
+[features]
+hydrate = [
+    "leptos/hydrate",
+    "dep:console_error_panic_hook",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+    "dep:web-sys",
+]
+ssr = [
+    "leptos/ssr",
+    "leptos_meta/ssr",
+    "leptos_router/ssr",
+    "dep:leptos_axum",
+    "dep:notes-kit-server",
+]
