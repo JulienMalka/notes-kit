@@ -180,9 +180,12 @@ where
 }
 
 async fn sse_notes(
-    axum::Extension(rx): axum::Extension<tokio::sync::watch::Receiver<u64>>,
+    axum::Extension(mut rx): axum::Extension<tokio::sync::watch::Receiver<u64>>,
 ) -> axum::response::sse::Sse<impl futures::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>>
 {
+    // Mark the current value as seen so the first changed() only fires on *new* updates,
+    // not on values that were already present before this SSE connection was established.
+    rx.borrow_and_update();
     let stream = futures::stream::unfold(rx, |mut rx| async move {
         rx.changed().await.ok()?;
         Some((
