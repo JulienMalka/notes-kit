@@ -15,10 +15,16 @@ async fn main() {
         config = config.auth_config(auth_config);
     }
 
+    let storage: Arc<dyn notes_kit_server::storage::StorageBackend> = Arc::new(
+        notes_kit_server::storage::LocalStorageBackend::new(notes_dir.into())
+            .expect("Failed to initialize local storage"),
+    );
+
     let format = Arc::new(notes_kit_org::format::OrgFormat::default());
 
     if let Err(e) = notes_kit_server::serve::serve(
         config,
+        storage,
         format,
         minimal_notes_app::App,
         shell,

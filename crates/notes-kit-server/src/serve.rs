@@ -7,9 +7,7 @@ use crate::cache::NotesCache;
 use crate::config::ServerConfig;
 use crate::repository::DefaultRepository;
 use crate::state::AppState;
-use crate::storage::LocalStorageBackend;
-
-use notes_kit_core::traits::AuthzPolicy;
+use notes_kit_core::traits::{AuthzPolicy, StorageBackend};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ServeError {
@@ -23,6 +21,7 @@ pub enum ServeError {
 
 pub async fn serve<AppFn, AppView, ShellFn, ShellView>(
     config: ServerConfig,
+    storage: Arc<dyn StorageBackend>,
     format: Arc<dyn notes_kit_core::traits::NoteFormat>,
     app_fn: AppFn,
     shell_fn: ShellFn,
@@ -40,11 +39,6 @@ where
     use tower_sessions::cookie::SameSite;
     use tower_sessions::SessionManagerLayer;
     use tower_sessions_sqlx_store::SqliteStore;
-
-    let storage = Arc::new(
-        LocalStorageBackend::new(config.notes_dir.clone())
-            .map_err(|e| ServeError::Config(e.to_string()))?,
-    );
 
     let auth_config = if let Some(ref path) = config.auth_config {
         let content =
@@ -90,23 +84,42 @@ where
         .await
         .map_err(|e| ServeError::Config(e.to_string()))?;
 
-    let (version_tx, version_rx) = tokio::sync::watch::channel(0u64);
+    let initial_hash = repository.global_version_hash();
+    let (version_tx, version_rx) = tokio::sync::watch::channel(initial_hash);
 
     {
         let repo = Arc::clone(&repository);
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
-            let mut last_hash = 0u64;
+            let mut last_listing_hash: Option<u64> = None;
+            let mut last_content_hash = initial_hash;
             interval.tick().await;
             loop {
                 interval.tick().await;
+                match repo.listing_hash().await {
+                    Ok(Some(h)) if Some(h) == last_listing_hash => continue,
+                    Ok(Some(h)) => {
+                        eprintln!("[cache] listing changed, reloading notes");
+                        last_listing_hash = Some(h);
+                    }
+                    Ok(None) => {}
+                    Err(e) => {
+                        eprintln!("[cache] listing hash error: {e}");
+                        continue;
+                    }
+                }
+                let old_count = repo.cached_note_count();
                 if let Err(e) = repo.refresh_cache().await {
                     eprintln!("[cache] refresh error: {e}");
                     continue;
                 }
+                let new_count = repo.cached_note_count();
                 let hash = repo.global_version_hash();
-                if hash != last_hash {
-                    last_hash = hash;
+                if hash != last_content_hash {
+                    eprintln!(
+                        "[cache] change detected: hash {last_content_hash:#x} -> {hash:#x}, notes {old_count} -> {new_count}"
+                    );
+                    last_content_hash = hash;
                     let _ = version_tx.send(hash);
                 }
             }

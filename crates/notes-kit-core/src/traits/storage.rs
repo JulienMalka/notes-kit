@@ -8,4 +8,9 @@ pub trait StorageBackend: Send + Sync + 'static {
     async fn read_file(&self, path: &str) -> Result<String, StorageError>;
 
     fn is_path_safe(&self, path: &str) -> bool;
+
+    async fn listing_hash(&self, extension: &str) -> Result<Option<u64>, StorageError> {
+        let _ = extension;
+        Ok(None)
+    }
 }

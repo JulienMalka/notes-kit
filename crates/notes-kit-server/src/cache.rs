@@ -23,6 +23,10 @@ impl NotesCache {
         self.notes = Some(map);
     }
 
+    pub fn note_count(&self) -> usize {
+        self.notes.as_ref().map_or(0, |m| m.len())
+    }
+
     pub fn compute_hash(&self) -> u64 {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};

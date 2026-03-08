@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use futures::future::join_all;
+use futures::stream::{self, StreamExt};
 use notes_kit_core::error::RepositoryError;
 use notes_kit_core::models::{AccessGrants, Note};
 use notes_kit_core::traits::{AuthzPolicy, NoteFormat, NoteRepository, StorageBackend};
@@ -56,11 +56,20 @@ impl DefaultRepository {
             .iter()
             .map(|p| {
                 let p = p.clone();
-                async move { self.load_from_storage(&p).await.ok() }
+                async move {
+                    self.load_from_storage(&p).await.map_err(|e| {
+                        eprintln!("[cache] failed to load '{p}': {e}");
+                        e
+                    }).ok()
+                }
             })
             .collect();
 
-        let results = join_all(futs).await;
+        let results: Vec<Option<Note>> = stream::iter(futs)
+            .buffer_unordered(16)
+            .collect()
+            .await;
+
         Ok(results.into_iter().flatten().collect())
     }
 
@@ -68,6 +77,14 @@ impl DefaultRepository {
         let notes = self.load_all_from_storage().await?;
         self.cache.write().unwrap_or_else(|e| e.into_inner()).set_all(notes);
         Ok(())
+    }
+
+    pub async fn listing_hash(&self) -> Result<Option<u64>, RepositoryError> {
+        let ext = self.format.file_extension();
+        self.storage
+            .listing_hash(ext)
+            .await
+            .map_err(|e| RepositoryError::Storage(e.to_string()))
     }
 
     pub async fn refresh_cache(&self) -> Result<(), RepositoryError> {
@@ -78,6 +95,10 @@ impl DefaultRepository {
 
     pub fn global_version_hash(&self) -> u64 {
         self.cache.read().unwrap_or_else(|e| e.into_inner()).compute_hash()
+    }
+
+    pub fn cached_note_count(&self) -> usize {
+        self.cache.read().unwrap_or_else(|e| e.into_inner()).note_count()
     }
 
     fn apply_effective_signature(&self, mut note: Note) -> Note {

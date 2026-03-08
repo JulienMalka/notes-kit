@@ -34,13 +34,26 @@ pub fn QueryProvider(children: Children) -> impl IntoView {
     #[cfg(feature = "hydrate")]
     {
         use wasm_bindgen::prelude::*;
-        let es = web_sys::EventSource::new("/api/events/notes").unwrap();
-        let cb = Closure::wrap(Box::new(move |_: web_sys::MessageEvent| {
-            ctx.bump_version();
-        }) as Box<dyn Fn(web_sys::MessageEvent)>);
-        es.set_onmessage(Some(cb.as_ref().unchecked_ref()));
+        let window = web_sys::window().unwrap();
+        let cb = Closure::once(Box::new(move || {
+            let es = web_sys::EventSource::new("/api/events/notes").unwrap();
+            let on_msg = Closure::wrap(Box::new(move |_: web_sys::MessageEvent| {
+                ctx.bump_version();
+            }) as Box<dyn Fn(web_sys::MessageEvent)>);
+            es.set_onmessage(Some(on_msg.as_ref().unchecked_ref()));
+            on_msg.forget();
+            let on_err = Closure::wrap(Box::new(move |_: web_sys::Event| {
+                web_sys::console::warn_1(&"[sse] connection lost, reconnecting...".into());
+            }) as Box<dyn Fn(web_sys::Event)>);
+            es.set_onerror(Some(on_err.as_ref().unchecked_ref()));
+            on_err.forget();
+            std::mem::forget(es);
+        }) as Box<dyn FnOnce()>);
+        let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
+            cb.as_ref().unchecked_ref(),
+            0,
+        );
         cb.forget();
-        std::mem::forget(es);
     }
 
     children()

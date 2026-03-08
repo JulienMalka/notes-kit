@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use notes_kit_core::error::StorageError;
 use notes_kit_core::traits::StorageBackend;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
@@ -32,11 +34,11 @@ impl LocalStorageBackend {
         self.root.join(relative)
     }
 
-    fn collect_files<'a>(
+    fn collect_files_with_meta<'a>(
         &'a self,
         dir: &'a Path,
         ext: &'a str,
-        out: &'a mut Vec<String>,
+        out: &'a mut Vec<(String, u64)>,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), StorageError>> + Send + 'a>>
     {
         Box::pin(async move {
@@ -56,11 +58,19 @@ impl LocalStorageBackend {
                     .map_err(|e| StorageError::Io(format!("metadata: {e}")))?;
 
                 if meta.is_dir() {
-                    self.collect_files(&path, ext, out).await?;
+                    self.collect_files_with_meta(&path, ext, out).await?;
                 } else if path.extension().and_then(|s| s.to_str()) == Some(ext) {
                     if let Ok(relative) = path.strip_prefix(&self.root) {
                         if let Some(s) = relative.to_str() {
-                            out.push(s.to_string());
+                            let mtime = meta
+                                .modified()
+                                .map(|t| {
+                                    t.duration_since(std::time::UNIX_EPOCH)
+                                        .map(|d| d.as_secs())
+                                        .unwrap_or(0)
+                                })
+                                .unwrap_or(0);
+                            out.push((s.to_string(), mtime));
                         }
                     }
                 }
@@ -73,9 +83,10 @@ impl LocalStorageBackend {
 #[async_trait]
 impl StorageBackend for LocalStorageBackend {
     async fn list_files(&self, extension: &str) -> Result<Vec<String>, StorageError> {
-        let mut files = Vec::new();
-        self.collect_files(&self.root, extension, &mut files).await?;
-        Ok(files)
+        let mut entries = Vec::new();
+        self.collect_files_with_meta(&self.root, extension, &mut entries)
+            .await?;
+        Ok(entries.into_iter().map(|(path, _)| path).collect())
     }
 
     async fn read_file(&self, path: &str) -> Result<String, StorageError> {
@@ -89,6 +100,19 @@ impl StorageBackend for LocalStorageBackend {
             }
             _ => StorageError::Io(format!("read error: {e}")),
         })
+    }
+
+    async fn listing_hash(&self, extension: &str) -> Result<Option<u64>, StorageError> {
+        let mut entries = Vec::new();
+        self.collect_files_with_meta(&self.root, extension, &mut entries)
+            .await?;
+        entries.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut hasher = DefaultHasher::new();
+        for (path, mtime) in &entries {
+            path.hash(&mut hasher);
+            mtime.hash(&mut hasher);
+        }
+        Ok(Some(hasher.finish()))
     }
 
     fn is_path_safe(&self, path: &str) -> bool {
