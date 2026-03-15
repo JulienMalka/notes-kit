@@ -158,10 +158,32 @@ where
         .build();
 
     let site_root = leptos_options.site_root.clone();
+    let pkg_dir = leptos_options.site_pkg_dir.clone();
     let shell = {
         let options = leptos_options.clone();
         move || shell_fn(options.clone())
     };
+
+    // Content-hashed assets in /pkg/ can be cached indefinitely.
+    let pkg_cache = tower_http::set_header::SetResponseHeaderLayer::if_not_present(
+        http::header::CACHE_CONTROL,
+        http::HeaderValue::from_static("public, max-age=31536000, immutable"),
+    );
+    let pkg_service = tower::ServiceBuilder::new()
+        .layer(pkg_cache)
+        .service(tower_http::services::ServeDir::new(
+            std::path::Path::new(&*site_root).join(&*pkg_dir),
+        ));
+
+    // Other static assets: cache for 1 day, revalidate after.
+    let static_cache = tower_http::set_header::SetResponseHeaderLayer::if_not_present(
+        http::header::CACHE_CONTROL,
+        http::HeaderValue::from_static("public, max-age=86400, stale-while-revalidate=604800"),
+    );
+    let static_service = tower::ServiceBuilder::new()
+        .layer(static_cache)
+        .service(tower_http::services::ServeDir::new(&*site_root));
+
     let app = Router::new()
         .route("/api/events/notes", axum::routing::get(sse_notes))
         .leptos_routes_with_context(
@@ -176,7 +198,8 @@ where
             },
             shell,
         )
-        .fallback_service(tower_http::services::ServeDir::new(&*site_root))
+        .nest_service(&format!("/{pkg_dir}"), pkg_service)
+        .fallback_service(static_service)
         .layer(axum::Extension(version_rx))
         .layer(auth_layer)
         .with_state(leptos_options);

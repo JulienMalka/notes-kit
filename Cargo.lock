@@ -2549,6 +2549,7 @@ dependencies = [
  "axum-login",
  "chrono",
  "futures",
+ "http 1.4.0",
  "leptos",
  "leptos_axum",
  "leptos_meta",

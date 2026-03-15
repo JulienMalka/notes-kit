@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 notes-kit-core = { path = "../notes-kit-core" }
 axum = "0.8"
+http = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "fs"] }
 leptos = { version = "0.8", features = ["ssr"] }
 leptos_axum = "0.8"
@@ -14,7 +15,7 @@ leptos_router = { version = "0.8", features = ["ssr"] }
 tower-sessions = "0.14"
 tower-sessions-sqlx-store = { version = "0.15", features = ["sqlite"] }
 tower = "0.5"
-tower-http = { version = "0.6", features = ["fs"] }
+tower-http = { version = "0.6", features = ["fs", "set-header"] }
 axum-login = "0.18"
 argon2 = { version = "0.5", features = ["std"] }
 toml = "0.8"
