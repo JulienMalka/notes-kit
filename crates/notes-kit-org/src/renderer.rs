@@ -101,6 +101,12 @@ pub fn render_element(element: SyntaxElement, ctx: &RenderContext) -> Option<Any
                     view! { <p class="verse">{children}</p> }.into_any()
                 })
             }
+            SyntaxKind::FN_REF => {
+                FnRef::cast(node).map(|f| render_fn_ref(&f, ctx))
+            }
+            SyntaxKind::FN_DEF => {
+                FnDef::cast(node).map(|f| render_fn_def(&f, ctx))
+            }
             SyntaxKind::COMMENT_BLOCK | SyntaxKind::KEYWORD => None,
             SyntaxKind::LINK => {
                 Link::cast(node).map(|l| render_link(&l, ctx))
@@ -482,4 +488,127 @@ fn render_table_row(row: &OrgTableRow, ctx: &RenderContext) -> AnyView {
         })
         .collect();
     view! { <tr>{cells}</tr> }.into_any()
+}
+
+/// Extract the label from a FnRef or FnDef node.
+///
+/// The syntax tree is: `L_BRACKET TEXT("fn") COLON TEXT(label) ...`
+/// The label is the TEXT token right after the first COLON.
+fn extract_fn_label(syntax: &orgize::SyntaxNode) -> String {
+    let mut found_first_colon = false;
+    for token in syntax.children_with_tokens() {
+        if let SyntaxElement::Token(t) = token {
+            if t.kind() == SyntaxKind::COLON && !found_first_colon {
+                found_first_colon = true;
+                continue;
+            }
+            if found_first_colon && t.kind() == SyntaxKind::TEXT {
+                return t.text().to_string();
+            }
+        }
+    }
+    String::new()
+}
+
+/// Extract the inline definition from a FnRef `[fn:LABEL:definition]`.
+///
+/// The definition content comes after the second COLON.
+fn extract_fn_inline_def(syntax: &orgize::SyntaxNode, ctx: &RenderContext) -> Option<Vec<AnyView>> {
+    let mut colon_count = 0;
+    let mut found_second_colon = false;
+    let mut children = Vec::new();
+
+    for elem in syntax.children_with_tokens() {
+        match &elem {
+            SyntaxElement::Token(t) if t.kind() == SyntaxKind::COLON => {
+                colon_count += 1;
+                if colon_count == 2 {
+                    found_second_colon = true;
+                    continue;
+                }
+            }
+            _ => {}
+        }
+        if found_second_colon {
+            // Skip the closing bracket
+            if let SyntaxElement::Token(t) = &elem {
+                if t.kind() == SyntaxKind::R_BRACKET {
+                    continue;
+                }
+            }
+            if let Some(v) = render_element(elem, ctx) {
+                children.push(v);
+            }
+        }
+    }
+
+    if found_second_colon && !children.is_empty() {
+        Some(children)
+    } else {
+        None
+    }
+}
+
+/// Render a footnote reference `[fn:LABEL]` as a superscript link.
+fn render_fn_ref(fn_ref: &FnRef, ctx: &RenderContext) -> AnyView {
+    let label = extract_fn_label(fn_ref.syntax());
+    let href = format!("#fn-{label}");
+    let id = format!("fnref-{label}");
+    let display = label.clone();
+
+    // Check for inline definition
+    if let Some(def_views) = extract_fn_inline_def(fn_ref.syntax(), ctx) {
+        // Inline footnote: render the ref and a hidden definition
+        let def_id = format!("fn-{label}");
+        let back_href = format!("#fnref-{label}");
+        view! {
+            <sup class="onk-fn-ref" id=id>
+                <a href=href>{display}</a>
+            </sup>
+            <aside class="onk-fn-inline-def" id=def_id>
+                {def_views}
+                " "
+                <a href=back_href class="onk-fn-back">{"\u{21A9}"}</a>
+            </aside>
+        }.into_any()
+    } else {
+        view! {
+            <sup class="onk-fn-ref" id=id>
+                <a href=href>{display}</a>
+            </sup>
+        }.into_any()
+    }
+}
+
+/// Render a footnote definition `[fn:LABEL] content` as a footnote entry.
+fn render_fn_def(fn_def: &FnDef, ctx: &RenderContext) -> AnyView {
+    let label = extract_fn_label(fn_def.syntax());
+    let id = format!("fn-{label}");
+    let back_href = format!("#fnref-{label}");
+
+    // Extract raw content after "[fn:LABEL]", then re-parse as org to render links etc.
+    let raw = fn_def.raw();
+    let content_str = raw
+        .find(']')
+        .map(|i| raw[i + 1..].trim())
+        .unwrap_or("")
+        .to_string();
+
+    // Re-parse the content as org-mode to handle links, formatting, etc.
+    let content_views = if content_str.is_empty() {
+        Vec::new()
+    } else {
+        let org = orgize::Org::parse(&content_str);
+        let doc = org.document();
+        render_children(doc.syntax().children_with_tokens(), ctx)
+    };
+
+    view! {
+        <div class="onk-fn-def" id=id>
+            <span class="onk-fn-def-label">{label}</span>
+            <span class="onk-fn-def-content">{content_views}</span>
+            " "
+            <a href=back_href class="onk-fn-back">{"\u{21A9}"}</a>
+        </div>
+    }.into_any()
 }
