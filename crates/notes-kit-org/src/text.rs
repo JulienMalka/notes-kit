@@ -114,6 +114,8 @@ pub fn extract_excerpt(content: &str, max_chars: usize) -> String {
     }
 
     let buf = strip_org_markup(&buf);
+    // Org-mode special strings (matches org-export-with-special-strings)
+    let buf = buf.replace("---", "\u{2014}").replace("--", "\u{2013}");
 
     if buf.len() > max_chars {
         let mut truncated = buf;

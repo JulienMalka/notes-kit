@@ -107,6 +107,12 @@ pub fn render_element(element: SyntaxElement, ctx: &RenderContext) -> Option<Any
             SyntaxKind::FN_DEF => {
                 FnDef::cast(node).map(|f| render_fn_def(&f, ctx))
             }
+            SyntaxKind::ENTITY => {
+                Entity::cast(node).map(|e| {
+                    let text = e.utf8().to_string();
+                    view! { {text} }.into_any()
+                })
+            }
             SyntaxKind::COMMENT_BLOCK | SyntaxKind::KEYWORD => None,
             SyntaxKind::LINK => {
                 Link::cast(node).map(|l| render_link(&l, ctx))
@@ -140,6 +146,8 @@ pub fn render_element(element: SyntaxElement, ctx: &RenderContext) -> Option<Any
         SyntaxElement::Token(token) => {
             if token.kind() == SyntaxKind::TEXT {
                 let text = token.text().to_string();
+                // Org-mode special strings (matches org-export-with-special-strings)
+                let text = text.replace("---", "\u{2014}").replace("--", "\u{2013}");
                 Some(view! { {text} }.into_any())
             } else {
                 None
