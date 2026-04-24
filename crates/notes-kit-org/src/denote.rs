@@ -63,11 +63,14 @@ pub struct DenoteFilename {
     pub signature: Option<String>,
     pub title: String,
     pub note_type: Option<String>,
+    pub extension: String,
 }
 
 impl DenoteFilename {
     pub fn parse(filename: &str) -> Option<Self> {
-        let without_ext = filename.strip_suffix(".org")?;
+        let dot_pos = filename.rfind('.')?;
+        let extension = filename[dot_pos + 1..].to_string();
+        let without_ext = &filename[..dot_pos];
 
         let id = DenoteId::parse(without_ext)?;
         let rest = &without_ext[15..];
@@ -95,7 +98,12 @@ impl DenoteFilename {
             signature,
             title,
             note_type,
+            extension,
         })
+    }
+
+    pub fn is_note(&self) -> bool {
+        self.extension == "org"
     }
 
     pub fn from_path(path: &str) -> Option<Self> {
@@ -123,7 +131,8 @@ impl DenoteFilename {
             result.push_str(nt);
         }
 
-        result.push_str(".org");
+        result.push('.');
+        result.push_str(&self.extension);
         result
     }
 
@@ -217,8 +226,24 @@ mod tests {
     }
 
     #[test]
-    fn reject_non_org_extension() {
-        assert!(DenoteFilename::parse("20250107T123456--title.md").is_none());
+    fn parse_non_org_extension() {
+        let df = DenoteFilename::parse("20250107T123456--title.md").unwrap();
+        assert_eq!(df.extension, "md");
+        assert!(!df.is_note());
+    }
+
+    #[test]
+    fn parse_image_extension() {
+        let df = DenoteFilename::parse("20250107T123456--sunset-photo__photo.webp").unwrap();
+        assert_eq!(df.extension, "webp");
+        assert_eq!(df.title, "sunset-photo");
+        assert_eq!(df.note_type.as_deref(), Some("photo"));
+        assert!(!df.is_note());
+    }
+
+    #[test]
+    fn reject_no_extension() {
+        assert!(DenoteFilename::parse("20250107T123456--title").is_none());
     }
 
     #[test]

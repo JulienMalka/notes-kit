@@ -5,7 +5,9 @@ edition = "2021"
 
 [dependencies]
 notes-kit-core = { path = "../notes-kit-core" }
+notes-kit-org = { path = "../notes-kit-org" }
 axum = "0.8"
+mime_guess = "2"
 http = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "fs"] }
 leptos = { version = "0.8", features = ["ssr"] }

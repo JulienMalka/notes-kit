@@ -104,6 +104,12 @@ impl StorageBackend for S3StorageBackend {
     }
 
     async fn read_file(&self, path: &str) -> Result<String, StorageError> {
+        let bytes = self.read_file_bytes(path).await?;
+        String::from_utf8(bytes)
+            .map_err(|e| StorageError::Io(format!("S3 object is not valid UTF-8: {e}")))
+    }
+
+    async fn read_file_bytes(&self, path: &str) -> Result<Vec<u8>, StorageError> {
         let key = self.full_key(path);
 
         let response = self
@@ -129,8 +135,47 @@ impl StorageBackend for S3StorageBackend {
             .map_err(|e| StorageError::Io(format!("S3 body read failed: {e}")))?
             .into_bytes();
 
-        String::from_utf8(bytes.to_vec())
-            .map_err(|e| StorageError::Io(format!("S3 object is not valid UTF-8: {e}")))
+        Ok(bytes.to_vec())
+    }
+
+    async fn list_all_files(&self) -> Result<Vec<String>, StorageError> {
+        let mut files = Vec::new();
+        let mut continuation_token: Option<String> = None;
+
+        loop {
+            let mut request = self
+                .client
+                .list_objects_v2()
+                .bucket(&self.bucket)
+                .prefix(&self.prefix);
+
+            if let Some(token) = continuation_token.take() {
+                request = request.continuation_token(token);
+            }
+
+            let response = request
+                .send()
+                .await
+                .map_err(|e| StorageError::Io(format!("S3 ListObjectsV2 failed: {e}")))?;
+
+            for object in response.contents() {
+                if let Some(key) = object.key() {
+                    let relative = key.strip_prefix(&self.prefix).unwrap_or(key);
+                    if !relative.is_empty() && !relative.ends_with('/') {
+                        files.push(relative.to_string());
+                    }
+                }
+            }
+
+            if response.is_truncated() == Some(true) {
+                continuation_token =
+                    response.next_continuation_token().map(|s| s.to_string());
+            } else {
+                break;
+            }
+        }
+
+        Ok(files)
     }
 
     fn is_path_safe(&self, path: &str) -> bool {

@@ -34,6 +34,40 @@ impl LocalStorageBackend {
         self.root.join(relative)
     }
 
+    fn collect_all_files<'a>(
+        &'a self,
+        dir: &'a Path,
+        out: &'a mut Vec<String>,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), StorageError>> + Send + 'a>>
+    {
+        Box::pin(async move {
+            let mut entries = fs::read_dir(dir)
+                .await
+                .map_err(|e| StorageError::Io(format!("read_dir: {e}")))?;
+
+            while let Some(entry) = entries
+                .next_entry()
+                .await
+                .map_err(|e| StorageError::Io(format!("next_entry: {e}")))?
+            {
+                let path = entry.path();
+                let meta = entry
+                    .metadata()
+                    .await
+                    .map_err(|e| StorageError::Io(format!("metadata: {e}")))?;
+
+                if meta.is_dir() {
+                    self.collect_all_files(&path, out).await?;
+                } else if let Ok(relative) = path.strip_prefix(&self.root) {
+                    if let Some(s) = relative.to_str() {
+                        out.push(s.to_string());
+                    }
+                }
+            }
+            Ok(())
+        })
+    }
+
     fn collect_files_with_meta<'a>(
         &'a self,
         dir: &'a Path,
@@ -100,6 +134,25 @@ impl StorageBackend for LocalStorageBackend {
             }
             _ => StorageError::Io(format!("read error: {e}")),
         })
+    }
+
+    async fn read_file_bytes(&self, path: &str) -> Result<Vec<u8>, StorageError> {
+        let abs = self.absolute(path);
+        fs::read(&abs).await.map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => {
+                StorageError::NotFound(format!("file not found: {path}"))
+            }
+            std::io::ErrorKind::PermissionDenied => {
+                StorageError::PermissionDenied(format!("permission denied: {path}"))
+            }
+            _ => StorageError::Io(format!("read error: {e}")),
+        })
+    }
+
+    async fn list_all_files(&self) -> Result<Vec<String>, StorageError> {
+        let mut entries = Vec::new();
+        self.collect_all_files(&self.root, &mut entries).await?;
+        Ok(entries)
     }
 
     async fn listing_hash(&self, extension: &str) -> Result<Option<u64>, StorageError> {

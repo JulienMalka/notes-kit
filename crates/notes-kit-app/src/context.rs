@@ -1,12 +1,14 @@
 use leptos::prelude::*;
-use notes_kit_core::models::Note;
+use notes_kit_core::models::{Asset, Note};
 
+use crate::server::assets::get_all_assets;
 use crate::server::notes::get_all_notes;
 
 #[derive(Clone, Copy)]
 pub struct NotesContext {
     pub version: RwSignal<u64>,
     pub all_notes: Resource<Result<Vec<Note>, ServerFnError>>,
+    pub all_assets: Resource<Result<Vec<Asset>, ServerFnError>>,
 }
 
 impl NotesContext {
@@ -24,9 +26,15 @@ pub fn QueryProvider(children: Children) -> impl IntoView {
         |_| get_all_notes(),
     );
 
+    let all_assets = Resource::new(
+        move || version.get(),
+        |_| get_all_assets(),
+    );
+
     let ctx = NotesContext {
         version,
         all_notes,
+        all_assets,
     };
 
     provide_context(ctx);

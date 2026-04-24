@@ -6,9 +6,11 @@ use std::sync::Arc;
 #[derive(Clone, Default)]
 pub struct RenderContext {
     pub id_map: HashMap<String, String>,
+    pub asset_map: HashMap<String, String>,
     pub accessible_ids: HashSet<String>,
     pub config: RenderConfig,
     pub notes_prefix: String,
+    pub assets_prefix: String,
 }
 
 impl RenderContext {
@@ -18,9 +20,11 @@ impl RenderContext {
     ) -> Self {
         Self {
             id_map,
+            asset_map: HashMap::new(),
             accessible_ids,
             config: RenderConfig::default(),
             notes_prefix: "/notes".into(),
+            assets_prefix: "/assets".into(),
         }
     }
 
@@ -31,6 +35,16 @@ impl RenderContext {
 
     pub fn with_notes_prefix(mut self, prefix: impl Into<String>) -> Self {
         self.notes_prefix = prefix.into();
+        self
+    }
+
+    pub fn with_asset_map(
+        mut self,
+        asset_map: HashMap<String, String>,
+        prefix: impl Into<String>,
+    ) -> Self {
+        self.asset_map = asset_map;
+        self.assets_prefix = prefix.into();
         self
     }
 }

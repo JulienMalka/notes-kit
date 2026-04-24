@@ -25,6 +25,7 @@ async fn main() {
     if let Err(e) = notes_kit_server::serve::serve(
         config,
         storage,
+        None,
         format,
         minimal_notes_app::App,
         shell,

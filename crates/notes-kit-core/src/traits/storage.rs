@@ -9,6 +9,14 @@ pub trait StorageBackend: Send + Sync + 'static {
 
     fn is_path_safe(&self, path: &str) -> bool;
 
+    async fn read_file_bytes(&self, path: &str) -> Result<Vec<u8>, StorageError> {
+        self.read_file(path).await.map(|s| s.into_bytes())
+    }
+
+    async fn list_all_files(&self) -> Result<Vec<String>, StorageError> {
+        Ok(Vec::new())
+    }
+
     async fn listing_hash(&self, extension: &str) -> Result<Option<u64>, StorageError> {
         let _ = extension;
         Ok(None)

@@ -9,6 +9,12 @@ pub struct ServerConfig {
     pub auth_config: Option<String>,
     pub user_db_path: String,
     pub site: SiteConfig,
+    /// Absolute base URL (e.g. "https://example.com") used to serve /sitemap.xml.
+    /// If None, /sitemap.xml is not served.
+    pub sitemap_base_url: Option<String>,
+    /// Static paths included in the sitemap in addition to public notes.
+    /// Defaults to just "/". Paths should start with "/".
+    pub sitemap_static_paths: Vec<String>,
 }
 
 impl ServerConfig {
@@ -20,7 +26,19 @@ impl ServerConfig {
             auth_config: None,
             user_db_path: ".users.db".to_string(),
             site: SiteConfig::default(),
+            sitemap_base_url: None,
+            sitemap_static_paths: vec!["/".to_string()],
         }
+    }
+
+    pub fn sitemap_base_url(mut self, url: impl Into<String>) -> Self {
+        self.sitemap_base_url = Some(url.into());
+        self
+    }
+
+    pub fn sitemap_static_paths(mut self, paths: Vec<String>) -> Self {
+        self.sitemap_static_paths = paths;
+        self
     }
 
     pub fn port(mut self, port: u16) -> Self {

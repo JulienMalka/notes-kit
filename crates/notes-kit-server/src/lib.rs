@@ -1,3 +1,4 @@
+pub mod asset_repository;
 pub mod auth;
 pub mod cache;
 pub mod config;

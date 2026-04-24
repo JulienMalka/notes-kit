@@ -359,19 +359,35 @@ pub struct ResolvedLink {
     pub href: String,
     pub is_accessible: bool,
     pub is_internal: bool,
+    pub is_image: bool,
+}
+
+fn is_image_extension(path: &str) -> bool {
+    let path_lower = path.to_ascii_lowercase();
+    matches!(
+        path_lower.rsplit('.').next(),
+        Some("webp" | "jpg" | "jpeg" | "png" | "gif" | "svg" | "avif" | "bmp" | "tiff")
+    )
 }
 
 pub fn resolve_link(path: &str, ctx: &RenderContext) -> ResolvedLink {
-    let (href, is_accessible) = if let Some(denote_id) = path.strip_prefix("denote:") {
+    let (href, is_accessible, is_image) = if let Some(denote_id) = path.strip_prefix("denote:") {
         let accessible = ctx.accessible_ids.is_empty() || ctx.accessible_ids.contains(denote_id);
-        let resolved = ctx
-            .id_map
-            .get(denote_id)
-            .map(|filename| format!("{}/{filename}", ctx.notes_prefix))
-            .unwrap_or_else(|| path.to_string());
-        (resolved, accessible)
+
+        if let Some(filename) = ctx.id_map.get(denote_id) {
+            let href = format!("{}/{filename}", ctx.notes_prefix);
+            (href, accessible, false)
+        } else if let Some(asset_filename) = ctx.asset_map.get(denote_id) {
+            let href = format!("{}/{asset_filename}", ctx.assets_prefix);
+            let is_img = is_image_extension(&href);
+            (href, accessible, is_img)
+        } else {
+            (path.to_string(), accessible, false)
+        }
     } else {
-        (path.trim_start_matches("file:").to_string(), true)
+        let href = path.trim_start_matches("file:").to_string();
+        let is_img = is_image_extension(&href);
+        (href, true, is_img)
     };
 
     let is_internal = href.starts_with('/') && !href.starts_with("//");
@@ -380,6 +396,7 @@ pub fn resolve_link(path: &str, ctx: &RenderContext) -> ResolvedLink {
         href,
         is_accessible,
         is_internal,
+        is_image,
     }
 }
 
@@ -397,8 +414,8 @@ pub fn default_render_link(link: &Link, ctx: &RenderContext) -> AnyView {
         return view! { <span></span> }.into_any();
     }
 
-    if link.is_image() {
-        return view! { <img src={resolved.href}/> }.into_any();
+    if link.is_image() || resolved.is_image {
+        return view! { <img src={resolved.href} loading="lazy" /> }.into_any();
     }
 
     if link.has_description() {
