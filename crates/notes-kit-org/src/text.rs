@@ -138,11 +138,14 @@ pub fn extract_excerpt(content: &str, max_chars: usize) -> String {
 pub fn parse_field<'a>(content: &'a str, key: &str) -> Option<&'a str> {
     for line in content.lines() {
         let trimmed = line.trim();
-        if let Some(rest) = trimmed.strip_prefix("- ") {
-            if let Some(value) = rest.strip_prefix(key).and_then(|r| r.strip_prefix(": ")) {
-                return Some(value.trim());
-            }
-        }
+        let Some(rest) = trimmed.strip_prefix("- ") else { continue };
+        let rest = rest.trim_start_matches('*');
+        let Some(after_key) = rest.strip_prefix(key) else { continue };
+        let after_key = after_key.trim_start_matches('*');
+        let Some(after_colon) = after_key.strip_prefix(':') else { continue };
+        let after_colon = after_colon.trim_start_matches('*');
+        let Some(value) = after_colon.strip_prefix(' ') else { continue };
+        return Some(value.trim());
     }
     None
 }
@@ -210,6 +213,17 @@ mod tests {
     #[test]
     fn parse_field_not_found() {
         assert_eq!(parse_field("no fields here", "Key"), None);
+    }
+
+    #[test]
+    fn parse_field_bold_label() {
+        // Colon inside bold: *Key:* value
+        let c1 = "- *Authors:* Alice, Bob\n- *Venue:* ICSE 2025\n";
+        assert_eq!(parse_field(c1, "Authors"), Some("Alice, Bob"));
+        assert_eq!(parse_field(c1, "Venue"), Some("ICSE 2025"));
+        // Colon outside bold: *Key*: value
+        let c2 = "- *Authors*: Alice, Bob\n";
+        assert_eq!(parse_field(c2, "Authors"), Some("Alice, Bob"));
     }
 
     #[test]
