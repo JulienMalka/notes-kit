@@ -135,6 +135,99 @@ pub fn extract_excerpt(content: &str, max_chars: usize) -> String {
     }
 }
 
+pub fn parse_property<'a>(content: &'a str, key: &str) -> Option<&'a str> {
+    let mut in_drawer = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if !in_drawer {
+            if trimmed.is_empty() || trimmed.starts_with("#+") {
+                continue;
+            }
+            if trimmed == ":PROPERTIES:" {
+                in_drawer = true;
+                continue;
+            }
+            return None;
+        }
+        if trimmed == ":END:" {
+            return None;
+        }
+        let Some(after_first_colon) = line.trim_start().strip_prefix(':') else { continue };
+        let Some((k, after_key)) = after_first_colon.split_once(':') else { continue };
+        if k.eq_ignore_ascii_case(key) {
+            return Some(after_key.trim());
+        }
+    }
+    None
+}
+
+pub fn extract_section(content: &str, heading: &str) -> Option<String> {
+    let mut buf = String::new();
+    let mut in_target = false;
+    let mut found = false;
+    let mut in_drawer = false;
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        let star_count = trimmed.bytes().take_while(|&b| b == b'*').count();
+        let is_heading =
+            star_count > 0 && trimmed.as_bytes().get(star_count) == Some(&b' ');
+
+        if is_heading {
+            if in_target {
+                break;
+            }
+            if star_count == 1 && trimmed[star_count + 1..].trim() == heading {
+                in_target = true;
+                found = true;
+                in_drawer = false;
+            }
+            continue;
+        }
+
+        if !in_target {
+            continue;
+        }
+
+        if trimmed.starts_with(':') && trimmed.ends_with(':') && trimmed.len() > 2 {
+            let inner = &trimmed[1..trimmed.len() - 1];
+            if inner == "END" {
+                in_drawer = false;
+                continue;
+            }
+            if inner.chars().all(|c| c.is_ascii_uppercase() || c == '_') {
+                in_drawer = true;
+                continue;
+            }
+        }
+        if in_drawer {
+            continue;
+        }
+
+        if trimmed.starts_with("#+") || trimmed.is_empty() {
+            continue;
+        }
+
+        if !buf.is_empty() {
+            buf.push(' ');
+        }
+        buf.push_str(trimmed);
+    }
+
+    if found { Some(buf) } else { None }
+}
+
+pub fn parse_org_link(input: &str) -> Option<(String, String)> {
+    let trimmed = input.trim();
+    let inner = trimmed.strip_prefix("[[")?.strip_suffix("]]")?;
+    if let Some((url, text)) = inner.split_once("][") {
+        Some((url.to_string(), text.to_string()))
+    } else {
+        Some((inner.to_string(), inner.to_string()))
+    }
+}
+
 pub fn parse_field<'a>(content: &'a str, key: &str) -> Option<&'a str> {
     for line in content.lines() {
         let trimmed = line.trim();
@@ -224,6 +317,102 @@ mod tests {
         // Colon outside bold: *Key*: value
         let c2 = "- *Authors*: Alice, Bob\n";
         assert_eq!(parse_field(c2, "Authors"), Some("Alice, Bob"));
+    }
+
+    #[test]
+    fn parse_property_basic() {
+        let c = ":PROPERTIES:\n:AUTHORS: Alice, Bob\n:VENUE: ICSE 2025\n:END:\n#+TITLE: x\n";
+        assert_eq!(parse_property(c, "AUTHORS"), Some("Alice, Bob"));
+        assert_eq!(parse_property(c, "VENUE"), Some("ICSE 2025"));
+    }
+
+    #[test]
+    fn parse_property_case_insensitive_key() {
+        let c = ":PROPERTIES:\n:Authors: Alice\n:END:\n";
+        assert_eq!(parse_property(c, "AUTHORS"), Some("Alice"));
+        assert_eq!(parse_property(c, "authors"), Some("Alice"));
+    }
+
+    #[test]
+    fn parse_property_after_keywords() {
+        let c = "#+TITLE: x\n#+DATE: 2025\n:PROPERTIES:\n:AUTHORS: Alice\n:END:\n";
+        assert_eq!(parse_property(c, "AUTHORS"), Some("Alice"));
+    }
+
+    #[test]
+    fn parse_property_missing_drawer() {
+        let c = "#+TITLE: x\n- Authors: Alice\n";
+        assert_eq!(parse_property(c, "AUTHORS"), None);
+    }
+
+    #[test]
+    fn parse_property_missing_key() {
+        let c = ":PROPERTIES:\n:AUTHORS: Alice\n:END:\n";
+        assert_eq!(parse_property(c, "VENUE"), None);
+    }
+
+    #[test]
+    fn parse_property_link_value() {
+        let c = ":PROPERTIES:\n:VENUE: [[https://x][ICSE]]\n:END:\n";
+        assert_eq!(parse_property(c, "VENUE"), Some("[[https://x][ICSE]]"));
+    }
+
+    #[test]
+    fn extract_section_basic() {
+        let c = "#+TITLE: x\n* Abstract\n\nWe present a thing.\n\n* See also\nfoo\n";
+        assert_eq!(extract_section(c, "Abstract"), Some("We present a thing.".to_string()));
+    }
+
+    #[test]
+    fn extract_section_missing() {
+        let c = "#+TITLE: x\n* Other\nfoo\n";
+        assert_eq!(extract_section(c, "Abstract"), None);
+    }
+
+    #[test]
+    fn extract_section_inline_links() {
+        let c = "* Abstract\nSee [[https://x][here]] for details.\n";
+        assert_eq!(
+            extract_section(c, "Abstract"),
+            Some("See [[https://x][here]] for details.".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_section_multiline_joined() {
+        let c = "* Abstract\nFirst line.\nSecond line.\n";
+        assert_eq!(
+            extract_section(c, "Abstract"),
+            Some("First line. Second line.".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_section_stops_at_subheading() {
+        let c = "* Abstract\nBody.\n** Sub\nSubbody.\n";
+        assert_eq!(extract_section(c, "Abstract"), Some("Body.".to_string()));
+    }
+
+    #[test]
+    fn parse_org_link_with_desc() {
+        assert_eq!(
+            parse_org_link("[[https://x][example]]"),
+            Some(("https://x".to_string(), "example".to_string()))
+        );
+    }
+
+    #[test]
+    fn parse_org_link_without_desc() {
+        assert_eq!(
+            parse_org_link("[[https://x]]"),
+            Some(("https://x".to_string(), "https://x".to_string()))
+        );
+    }
+
+    #[test]
+    fn parse_org_link_plain_text() {
+        assert_eq!(parse_org_link("https://x"), None);
+        assert_eq!(parse_org_link("just text"), None);
     }
 
     #[test]

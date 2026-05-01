@@ -113,7 +113,11 @@ pub fn render_element(element: SyntaxElement, ctx: &RenderContext) -> Option<Any
                     view! { {text} }.into_any()
                 })
             }
-            SyntaxKind::COMMENT_BLOCK | SyntaxKind::KEYWORD => None,
+            SyntaxKind::COMMENT_BLOCK
+            | SyntaxKind::KEYWORD
+            | SyntaxKind::PROPERTY_DRAWER
+            | SyntaxKind::NODE_PROPERTY
+            | SyntaxKind::DRAWER => None,
             SyntaxKind::LINK => {
                 Link::cast(node).map(|l| render_link(&l, ctx))
             }
