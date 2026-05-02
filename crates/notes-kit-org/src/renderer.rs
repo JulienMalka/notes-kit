@@ -486,7 +486,7 @@ fn render_org_table(table: &OrgTable, ctx: &RenderContext) -> AnyView {
             {if !header_rows.is_empty() {
                 Some(view! {
                     <thead>
-                        {header_rows.into_iter().map(|row| render_table_row(&row, ctx)).collect_view()}
+                        {header_rows.into_iter().map(|row| render_table_row(&row, ctx, true)).collect_view()}
                     </thead>
                 }.into_any())
             } else {
@@ -495,7 +495,7 @@ fn render_org_table(table: &OrgTable, ctx: &RenderContext) -> AnyView {
             {if !body_rows.is_empty() {
                 Some(view! {
                     <tbody>
-                        {body_rows.into_iter().map(|row| render_table_row(&row, ctx)).collect_view()}
+                        {body_rows.into_iter().map(|row| render_table_row(&row, ctx, false)).collect_view()}
                     </tbody>
                 }.into_any())
             } else {
@@ -506,14 +506,18 @@ fn render_org_table(table: &OrgTable, ctx: &RenderContext) -> AnyView {
     .into_any()
 }
 
-fn render_table_row(row: &OrgTableRow, ctx: &RenderContext) -> AnyView {
+fn render_table_row(row: &OrgTableRow, ctx: &RenderContext, is_header: bool) -> AnyView {
     let cells: Vec<AnyView> = row
         .syntax()
         .children()
         .filter_map(OrgTableCell::cast)
         .map(|cell| {
             let children = render_children(cell.syntax().children_with_tokens(), ctx);
-            view! { <td>{children}</td> }.into_any()
+            if is_header {
+                view! { <th>{children}</th> }.into_any()
+            } else {
+                view! { <td>{children}</td> }.into_any()
+            }
         })
         .collect();
     view! { <tr>{cells}</tr> }.into_any()
