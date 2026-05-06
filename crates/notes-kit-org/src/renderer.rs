@@ -364,6 +364,8 @@ pub struct ResolvedLink {
     pub is_accessible: bool,
     pub is_internal: bool,
     pub is_image: bool,
+    pub is_video: bool,
+    pub is_audio: bool,
 }
 
 fn is_image_extension(path: &str) -> bool {
@@ -374,8 +376,24 @@ fn is_image_extension(path: &str) -> bool {
     )
 }
 
+fn is_video_extension(path: &str) -> bool {
+    let path_lower = path.to_ascii_lowercase();
+    matches!(
+        path_lower.rsplit('.').next(),
+        Some("mp4" | "webm" | "mov" | "m4v" | "ogv")
+    )
+}
+
+fn is_audio_extension(path: &str) -> bool {
+    let path_lower = path.to_ascii_lowercase();
+    matches!(
+        path_lower.rsplit('.').next(),
+        Some("mp3" | "wav" | "ogg" | "m4a" | "flac" | "opus")
+    )
+}
+
 pub fn resolve_link(path: &str, ctx: &RenderContext) -> ResolvedLink {
-    let (href, is_accessible, is_image) = if let Some(denote_id) = path.strip_prefix("denote:") {
+    let (href, is_accessible, classify) = if let Some(denote_id) = path.strip_prefix("denote:") {
         let accessible = ctx.accessible_ids.is_empty() || ctx.accessible_ids.contains(denote_id);
 
         if let Some(filename) = ctx.id_map.get(denote_id) {
@@ -383,15 +401,23 @@ pub fn resolve_link(path: &str, ctx: &RenderContext) -> ResolvedLink {
             (href, accessible, false)
         } else if let Some(asset_filename) = ctx.asset_map.get(denote_id) {
             let href = format!("{}/{asset_filename}", ctx.assets_prefix);
-            let is_img = is_image_extension(&href);
-            (href, accessible, is_img)
+            (href, accessible, true)
         } else {
             (path.to_string(), accessible, false)
         }
     } else {
         let href = path.trim_start_matches("file:").to_string();
-        let is_img = is_image_extension(&href);
-        (href, true, is_img)
+        (href, true, true)
+    };
+
+    let (is_image, is_video, is_audio) = if classify {
+        (
+            is_image_extension(&href),
+            is_video_extension(&href),
+            is_audio_extension(&href),
+        )
+    } else {
+        (false, false, false)
     };
 
     let is_internal = href.starts_with('/') && !href.starts_with("//");
@@ -401,6 +427,8 @@ pub fn resolve_link(path: &str, ctx: &RenderContext) -> ResolvedLink {
         is_accessible,
         is_internal,
         is_image,
+        is_video,
+        is_audio,
     }
 }
 
@@ -420,6 +448,20 @@ pub fn default_render_link(link: &Link, ctx: &RenderContext) -> AnyView {
 
     if link.is_image() || resolved.is_image {
         return view! { <img src={resolved.href} loading="lazy" /> }.into_any();
+    }
+
+    if resolved.is_video {
+        return view! {
+            <video controls preload="metadata" src={resolved.href}></video>
+        }
+        .into_any();
+    }
+
+    if resolved.is_audio {
+        return view! {
+            <audio controls preload="metadata" src={resolved.href}></audio>
+        }
+        .into_any();
     }
 
     if link.has_description() {
