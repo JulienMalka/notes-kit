@@ -215,9 +215,13 @@ where
     );
     let pkg_service = tower::ServiceBuilder::new()
         .layer(pkg_cache)
-        .service(tower_http::services::ServeDir::new(
-            std::path::Path::new(&*site_root).join(&*pkg_dir),
-        ));
+        .service(
+            tower_http::services::ServeDir::new(
+                std::path::Path::new(&*site_root).join(&*pkg_dir),
+            )
+            .precompressed_br()
+            .precompressed_gzip(),
+        );
 
     // Other static assets: cache for 1 day, revalidate after.
     let static_cache = tower_http::set_header::SetResponseHeaderLayer::if_not_present(
@@ -226,7 +230,11 @@ where
     );
     let static_service = tower::ServiceBuilder::new()
         .layer(static_cache)
-        .service(tower_http::services::ServeDir::new(&*site_root));
+        .service(
+            tower_http::services::ServeDir::new(&*site_root)
+                .precompressed_br()
+                .precompressed_gzip(),
+        );
 
     let mut app = Router::new()
         .route("/api/events/notes", axum::routing::get(sse_notes));
