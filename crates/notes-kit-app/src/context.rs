@@ -21,15 +21,9 @@ impl NotesContext {
 pub fn QueryProvider(children: Children) -> impl IntoView {
     let version = RwSignal::new(0u64);
 
-    let all_notes = Resource::new(
-        move || version.get(),
-        |_| get_all_notes(),
-    );
+    let all_notes = Resource::new(move || version.get(), |_| get_all_notes());
 
-    let all_assets = Resource::new(
-        move || version.get(),
-        |_| get_all_assets(),
-    );
+    let all_assets = Resource::new(move || version.get(), |_| get_all_assets());
 
     let ctx = NotesContext {
         version,
@@ -57,10 +51,27 @@ pub fn QueryProvider(children: Children) -> impl IntoView {
             on_err.forget();
             std::mem::forget(es);
         }) as Box<dyn FnOnce()>);
-        let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
-            cb.as_ref().unchecked_ref(),
-            0,
-        );
+
+        // requestIdleCallback when available
+        let opts = web_sys::IdleRequestOptions::new();
+        opts.set_timeout(3000);
+        let scheduled =
+            window.request_idle_callback_with_options(cb.as_ref().unchecked_ref(), &opts);
+        if scheduled.is_err() {
+            let already_loaded = window
+                .document()
+                .map(|d| d.ready_state() == "complete")
+                .unwrap_or(false);
+            if already_loaded {
+                let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
+                    cb.as_ref().unchecked_ref(),
+                    0,
+                );
+            } else {
+                let _ =
+                    window.add_event_listener_with_callback("load", cb.as_ref().unchecked_ref());
+            }
+        }
         cb.forget();
     }
 
