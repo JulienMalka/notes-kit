@@ -26,11 +26,13 @@ fn render_login_modal_body(auth: AuthState) -> AnyView {
     let (password, set_password) = signal(String::new());
     let (error, set_error) = signal(None::<String>);
 
+    // Closing sets login_prompt=None which unmounts the <Show> subtree
+    // and disposes the email/password/error signals. Writing to those
+    // signals afterwards panics with "Tried to access a reactive value
+    // that has already been disposed." The modal is destroyed and rebuilt
+    // each time it opens, so there's no state to clear.
     let close = move || {
         auth.close_login_prompt();
-        set_email.set(String::new());
-        set_password.set(String::new());
-        set_error.set(None);
     };
 
     let on_submit = move |ev: leptos::ev::SubmitEvent| {
