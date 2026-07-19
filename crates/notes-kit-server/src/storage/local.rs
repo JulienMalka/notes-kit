@@ -149,6 +149,37 @@ impl StorageBackend for LocalStorageBackend {
         })
     }
 
+    async fn read_file_range(
+        &self,
+        path: &str,
+        start: u64,
+        max_len: u64,
+    ) -> Result<notes_kit_core::traits::RangeRead, StorageError> {
+        use tokio::io::{AsyncReadExt, AsyncSeekExt};
+
+        let abs = self.absolute(path);
+        let map_err = |e: std::io::Error| match e.kind() {
+            std::io::ErrorKind::NotFound => {
+                StorageError::NotFound(format!("file not found: {path}"))
+            }
+            std::io::ErrorKind::PermissionDenied => {
+                StorageError::PermissionDenied(format!("permission denied: {path}"))
+            }
+            _ => StorageError::Io(format!("read error: {e}")),
+        };
+
+        let mut file = fs::File::open(&abs).await.map_err(map_err)?;
+        let total_size = file.metadata().await.map_err(map_err)?.len();
+        let start = start.min(total_size);
+        let len = max_len.min(total_size - start);
+        file.seek(std::io::SeekFrom::Start(start))
+            .await
+            .map_err(map_err)?;
+        let mut bytes = vec![0u8; len as usize];
+        file.read_exact(&mut bytes).await.map_err(map_err)?;
+        Ok(notes_kit_core::traits::RangeRead { bytes, total_size })
+    }
+
     async fn list_all_files(&self) -> Result<Vec<String>, StorageError> {
         let mut entries = Vec::new();
         self.collect_all_files(&self.root, &mut entries).await?;

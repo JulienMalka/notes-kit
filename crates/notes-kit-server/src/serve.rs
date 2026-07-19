@@ -208,10 +208,18 @@ where
         move || shell_fn(options.clone())
     };
 
-    // Content-hashed assets in /pkg/ can be cached indefinitely.
+    // Content-hashed assets in /pkg/ can be cached indefinitely — in
+    // release. Debug builds serve unhashed artifacts that `cargo leptos
+    // watch` rebuilds in place, so an immutable header would pin browsers
+    // to stale wasm/css across rebuilds; revalidate instead (ServeDir's
+    // Last-Modified makes that a cheap 304 locally).
     let pkg_cache = tower_http::set_header::SetResponseHeaderLayer::if_not_present(
         http::header::CACHE_CONTROL,
-        http::HeaderValue::from_static("public, max-age=31536000, immutable"),
+        http::HeaderValue::from_static(if cfg!(debug_assertions) {
+            "no-cache"
+        } else {
+            "public, max-age=31536000, immutable"
+        }),
     );
     let pkg_service = tower::ServiceBuilder::new()
         .layer(pkg_cache)
@@ -223,10 +231,15 @@ where
             .precompressed_gzip(),
         );
 
-    // Other static assets: cache for 1 day, revalidate after.
+    // Other static assets: cache for 1 day, revalidate after (same
+    // dev-mode carve-out as /pkg/).
     let static_cache = tower_http::set_header::SetResponseHeaderLayer::if_not_present(
         http::header::CACHE_CONTROL,
-        http::HeaderValue::from_static("public, max-age=86400, stale-while-revalidate=604800"),
+        http::HeaderValue::from_static(if cfg!(debug_assertions) {
+            "no-cache"
+        } else {
+            "public, max-age=86400, stale-while-revalidate=604800"
+        }),
     );
     let static_service = tower::ServiceBuilder::new()
         .layer(static_cache)
@@ -283,8 +296,29 @@ where
     Ok(())
 }
 
+/// Parse a simple single-range `Range: bytes=start-end?` header. Suffix
+/// ranges (`bytes=-N`) and multi-ranges are rare from browsers and are
+/// answered with a full 200 instead.
+fn parse_byte_range(headers: &http::HeaderMap) -> Option<(u64, Option<u64>)> {
+    let value = headers.get(http::header::RANGE)?.to_str().ok()?;
+    let spec = value.strip_prefix("bytes=")?;
+    if spec.contains(',') {
+        return None;
+    }
+    let (start, end) = spec.split_once('-')?;
+    let start = start.trim().parse().ok()?;
+    let end = end.trim();
+    let end = if end.is_empty() {
+        None
+    } else {
+        Some(end.parse().ok()?)
+    };
+    Some((start, end))
+}
+
 async fn serve_asset(
     axum::extract::Path(path): axum::extract::Path<String>,
+    headers: http::HeaderMap,
     auth_session: crate::auth::AuthSession,
     axum::Extension(state): axum::Extension<AppState>,
 ) -> axum::response::Response {
@@ -310,17 +344,60 @@ async fn serve_asset(
         return (http::StatusCode::FORBIDDEN, "access denied").into_response();
     }
 
+    let content_type = mime_guess::from_path(&path)
+        .first_or_octet_stream()
+        .to_string();
+    let cache_control = "public, max-age=86400, stale-while-revalidate=604800".to_string();
+
+    // Ranged path — required for media playback (seeking, preload=metadata).
+    // Open-ended ranges are served in bounded windows so a `bytes=0-` from a
+    // <video> element never buffers a whole file in memory; clients follow
+    // up for the rest.
+    const RANGE_WINDOW_MAX: u64 = 8 * 1024 * 1024;
+    if let Some((start, end)) = parse_byte_range(&headers) {
+        let max_len = end
+            .map(|e| e.saturating_sub(start).saturating_add(1))
+            .unwrap_or(RANGE_WINDOW_MAX)
+            .min(RANGE_WINDOW_MAX);
+        return match asset_repo.read_bytes_range(&path, start, max_len).await {
+            Ok(range) if range.bytes.is_empty() && start >= range.total_size => (
+                http::StatusCode::RANGE_NOT_SATISFIABLE,
+                [(
+                    http::header::CONTENT_RANGE,
+                    format!("bytes */{}", range.total_size),
+                )],
+            )
+                .into_response(),
+            Ok(range) => {
+                let end_actual = start + range.bytes.len() as u64 - 1;
+                (
+                    http::StatusCode::PARTIAL_CONTENT,
+                    [
+                        (http::header::CONTENT_TYPE, content_type),
+                        (http::header::ACCEPT_RANGES, "bytes".to_string()),
+                        (
+                            http::header::CONTENT_RANGE,
+                            format!("bytes {start}-{end_actual}/{}", range.total_size),
+                        ),
+                        (http::header::CACHE_CONTROL, cache_control),
+                    ],
+                    range.bytes,
+                )
+                    .into_response()
+            }
+            Err(notes_kit_core::error::StorageError::NotFound(_)) => {
+                (http::StatusCode::NOT_FOUND, "asset not found").into_response()
+            }
+            Err(e) => (http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        };
+    }
+
     match asset_repo.read_bytes(&path).await {
         Ok(bytes) => {
-            let content_type = mime_guess::from_path(&path)
-                .first_or_octet_stream()
-                .to_string();
             let headers = [
                 (http::header::CONTENT_TYPE, content_type),
-                (
-                    http::header::CACHE_CONTROL,
-                    "public, max-age=86400, stale-while-revalidate=604800".to_string(),
-                ),
+                (http::header::ACCEPT_RANGES, "bytes".to_string()),
+                (http::header::CACHE_CONTROL, cache_control),
             ];
             (headers, bytes).into_response()
         }

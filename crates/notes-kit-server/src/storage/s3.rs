@@ -138,6 +138,78 @@ impl StorageBackend for S3StorageBackend {
         Ok(bytes.to_vec())
     }
 
+    async fn read_file_range(
+        &self,
+        path: &str,
+        start: u64,
+        max_len: u64,
+    ) -> Result<notes_kit_core::traits::RangeRead, StorageError> {
+        use notes_kit_core::traits::RangeRead;
+
+        let key = self.full_key(path);
+        let end_incl = start.saturating_add(max_len.max(1)) - 1;
+
+        let result = self
+            .client
+            .get_object()
+            .bucket(&self.bucket)
+            .key(&key)
+            .range(format!("bytes={start}-{end_incl}"))
+            .send()
+            .await;
+
+        let response = match result {
+            Ok(r) => r,
+            Err(e) => {
+                if let aws_sdk_s3::error::SdkError::ServiceError(err) = &e {
+                    if err.err().is_no_such_key() {
+                        return Err(StorageError::NotFound(format!(
+                            "S3 object not found: {key}"
+                        )));
+                    }
+                    // Start beyond end of object: report the total size so
+                    // the caller can answer 416 with a Content-Range.
+                    if err.err().meta().code() == Some("InvalidRange") {
+                        let head = self
+                            .client
+                            .head_object()
+                            .bucket(&self.bucket)
+                            .key(&key)
+                            .send()
+                            .await
+                            .map_err(|e| {
+                                StorageError::Io(format!("S3 HeadObject failed for '{key}': {e}"))
+                            })?;
+                        return Ok(RangeRead {
+                            bytes: Vec::new(),
+                            total_size: head.content_length().unwrap_or(0).max(0) as u64,
+                        });
+                    }
+                }
+                return Err(StorageError::Io(format!(
+                    "S3 ranged GetObject failed for '{key}': {e}"
+                )));
+            }
+        };
+
+        // "bytes start-end/total"
+        let total_size = response
+            .content_range()
+            .and_then(|cr| cr.rsplit('/').next())
+            .and_then(|t| t.parse::<u64>().ok());
+
+        let bytes = response
+            .body
+            .collect()
+            .await
+            .map_err(|e| StorageError::Io(format!("S3 body read failed: {e}")))?
+            .into_bytes()
+            .to_vec();
+
+        let total_size = total_size.unwrap_or(bytes.len() as u64);
+        Ok(RangeRead { bytes, total_size })
+    }
+
     async fn list_all_files(&self) -> Result<Vec<String>, StorageError> {
         let mut files = Vec::new();
         let mut continuation_token: Option<String> = None;

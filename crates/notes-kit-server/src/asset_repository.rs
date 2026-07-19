@@ -79,4 +79,16 @@ impl AssetRepository {
         }
         self.storage.read_file_bytes(path).await
     }
+
+    pub async fn read_bytes_range(
+        &self,
+        path: &str,
+        start: u64,
+        max_len: u64,
+    ) -> Result<notes_kit_core::traits::RangeRead, StorageError> {
+        if !self.storage.is_path_safe(path) {
+            return Err(StorageError::InvalidPath(format!("unsafe path: {path}")));
+        }
+        self.storage.read_file_range(path, start, max_len).await
+    }
 }
