@@ -67,15 +67,18 @@ pub fn extract_excerpt(content: &str, max_chars: usize) -> String {
         }
         if trimmed.starts_with(':') && trimmed.ends_with(':') && trimmed.len() > 2 {
             let inner = &trimmed[1..trimmed.len() - 1];
+            // ":END:" must be tested before the generic all-uppercase
+            // drawer check — "END" matches it too, which used to re-open
+            // the drawer and swallow the entire rest of the note.
+            if inner == "END" {
+                in_drawer = false;
+                continue;
+            }
             if inner == "PROPERTIES"
                 || inner == "LOGBOOK"
                 || inner.chars().all(|c| c.is_ascii_uppercase() || c == '_')
             {
                 in_drawer = true;
-                continue;
-            }
-            if inner == "END" {
-                in_drawer = false;
                 continue;
             }
         }
