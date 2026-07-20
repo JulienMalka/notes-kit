@@ -285,6 +285,14 @@ where
         .layer(auth_layer)
         .with_state(leptos_options);
 
+    // Merged after with_state so the embedder's routes stay a plain
+    // stateless Router (they capture whatever they need in closures)
+    // while taking precedence over the fallback static service.
+    let app = match config.extra_router {
+        Some(extra) => extra.merge(app),
+        None => app,
+    };
+
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .map_err(|e| ServeError::Server(e.to_string()))?;

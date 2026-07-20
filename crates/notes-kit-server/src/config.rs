@@ -15,6 +15,10 @@ pub struct ServerConfig {
     /// Static paths included in the sitemap in addition to public notes.
     /// Defaults to just "/". Paths should start with "/".
     pub sitemap_static_paths: Vec<String>,
+    /// Extra application routes merged into the server's router — lets
+    /// the embedding site add endpoints (e.g. generated OG images)
+    /// without forking the serve loop.
+    pub extra_router: Option<axum::Router>,
 }
 
 impl ServerConfig {
@@ -28,7 +32,13 @@ impl ServerConfig {
             site: SiteConfig::default(),
             sitemap_base_url: None,
             sitemap_static_paths: vec!["/".to_string()],
+            extra_router: None,
         }
+    }
+
+    pub fn extra_router(mut self, router: axum::Router) -> Self {
+        self.extra_router = Some(router);
+        self
     }
 
     pub fn sitemap_base_url(mut self, url: impl Into<String>) -> Self {
