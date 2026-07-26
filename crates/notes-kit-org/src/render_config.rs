@@ -11,6 +11,9 @@ pub struct RenderContext {
     pub config: RenderConfig,
     pub notes_prefix: String,
     pub assets_prefix: String,
+    /// Precomputed code-block HTML for the note being rendered, keyed by
+    /// a stable hash of (language, content) — see `Note::highlights`.
+    pub highlights: HashMap<u64, String>,
 }
 
 impl RenderContext {
@@ -25,7 +28,13 @@ impl RenderContext {
             config: RenderConfig::default(),
             notes_prefix: "/notes".into(),
             assets_prefix: "/assets".into(),
+            highlights: HashMap::new(),
         }
+    }
+
+    pub fn with_highlights(mut self, highlights: Option<HashMap<u64, String>>) -> Self {
+        self.highlights = highlights.unwrap_or_default();
+        self
     }
 
     pub fn with_config(mut self, config: RenderConfig) -> Self {

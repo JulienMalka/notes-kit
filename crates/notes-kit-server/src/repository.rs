@@ -9,11 +9,17 @@ use std::sync::{Arc, RwLock};
 
 use crate::cache::NotesCache;
 
+/// Transformation applied to every note as it is loaded from storage,
+/// before it enters the cache — e.g. attaching precomputed syntax
+/// highlighting. Runs on initial load and on every cache refresh.
+pub type NoteTransform = Arc<dyn Fn(Note) -> Note + Send + Sync>;
+
 pub struct DefaultRepository {
     storage: Arc<dyn StorageBackend>,
     format: Arc<dyn NoteFormat>,
     authz: Arc<dyn AuthzPolicy>,
     cache: Arc<RwLock<NotesCache>>,
+    transform: Option<NoteTransform>,
 }
 
 impl DefaultRepository {
@@ -28,7 +34,13 @@ impl DefaultRepository {
             format,
             authz,
             cache,
+            transform: None,
         }
+    }
+
+    pub fn with_transform(mut self, transform: Option<NoteTransform>) -> Self {
+        self.transform = transform;
+        self
     }
 
     async fn load_from_storage(&self, path: &str) -> Result<Note, RepositoryError> {
@@ -39,12 +51,17 @@ impl DefaultRepository {
         let filename = path.rsplit('/').next().unwrap_or(path);
         let metadata = self.format.extract_metadata(&content, filename);
 
-        Ok(Note {
+        let note = Note {
             path: path.to_string(),
             filename: filename.to_string(),
             content: Some(content),
             metadata,
             effective_signature: None,
+            highlights: None,
+        };
+        Ok(match &self.transform {
+            Some(t) => t(note),
+            None => note,
         })
     }
 

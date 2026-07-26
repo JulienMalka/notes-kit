@@ -19,6 +19,9 @@ pub struct ServerConfig {
     /// the embedding site add endpoints (e.g. generated OG images)
     /// without forking the serve loop.
     pub extra_router: Option<axum::Router>,
+    /// Applied to every note as it loads from storage (initial load and
+    /// every refresh) — e.g. attaching precomputed syntax highlighting.
+    pub note_transform: Option<crate::repository::NoteTransform>,
 }
 
 impl ServerConfig {
@@ -33,7 +36,13 @@ impl ServerConfig {
             sitemap_base_url: None,
             sitemap_static_paths: vec!["/".to_string()],
             extra_router: None,
+            note_transform: None,
         }
+    }
+
+    pub fn note_transform(mut self, transform: crate::repository::NoteTransform) -> Self {
+        self.note_transform = Some(transform);
+        self
     }
 
     pub fn extra_router(mut self, router: axum::Router) -> Self {

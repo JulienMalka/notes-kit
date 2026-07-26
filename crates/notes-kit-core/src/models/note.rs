@@ -23,6 +23,12 @@ pub struct Note {
     pub metadata: NoteMetadata,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub effective_signature: Option<String>,
+    /// Precomputed HTML fragments for code blocks, keyed by a stable hash
+    /// of (language, content). Filled server-side at cache load (e.g.
+    /// syntax highlighting) and shipped with the note so server and
+    /// client render identical output.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub highlights: Option<std::collections::HashMap<u64, String>>,
 }
 
 impl Note {
@@ -33,6 +39,7 @@ impl Note {
             content: None,
             metadata,
             effective_signature: None,
+            highlights: None,
         }
     }
 

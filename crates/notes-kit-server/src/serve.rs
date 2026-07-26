@@ -74,12 +74,10 @@ where
         Arc::new(SqliteAuthBackend::new(user_repo));
 
     let cache = Arc::new(RwLock::new(NotesCache::default()));
-    let repository = Arc::new(DefaultRepository::new(
-        storage,
-        format.clone(),
-        authz.clone(),
-        cache,
-    ));
+    let repository = Arc::new(
+        DefaultRepository::new(storage, format.clone(), authz.clone(), cache)
+            .with_transform(config.note_transform.clone()),
+    );
 
     repository
         .init_cache()
