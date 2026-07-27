@@ -52,7 +52,9 @@ pub fn use_search() -> SearchState {
         if q.len() < 2 {
             return vec![];
         }
-        let notes = ctx.all_notes.get().and_then(|r| r.ok()).unwrap_or_default();
+        // Full corpus once the backfill lands (full-text search); the
+        // body-less summary before that (title + excerpt matches).
+        let notes = ctx.notes_with_bodies_now().unwrap_or_default();
         notes_kit_core::search::search_notes(&notes, &q)
     });
 

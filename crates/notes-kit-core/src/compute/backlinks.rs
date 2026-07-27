@@ -16,11 +16,18 @@ pub fn compute_backlinks(notes: &[Note], target_id: &str) -> Vec<Note> {
             if note.filename == "index.org" {
                 return false;
             }
-            let content = note.content.as_deref().unwrap_or("");
-            let linked_ids = extract_denote_link_ids(content);
-            linked_ids.iter().any(|id| id.as_str() == target_id)
+            match &note.link_ids {
+                // Precomputed at cache load — works on body-less summaries.
+                Some(ids) => ids.iter().any(|id| id.as_str() == target_id),
+                None => {
+                    let content = note.content.as_deref().unwrap_or("");
+                    extract_denote_link_ids(content)
+                        .iter()
+                        .any(|id| id.as_str() == target_id)
+                }
+            }
         })
-        .map(|note| Note::list_entry(note.path.clone(), note.filename.clone(), note.metadata.clone()))
+        .map(|note| note.summary_entry())
         .collect();
 
     backlinks.sort_by(|a, b| b.filename.cmp(&a.filename));

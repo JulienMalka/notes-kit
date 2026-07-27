@@ -29,7 +29,11 @@ pub async fn load_note(
     custom_config: Option<RenderConfig>,
     notes_config: NotesConfig,
 ) -> NoteResult {
-    match ctx.all_notes.await {
+    // Bodies come from the backfilled corpus when it has landed; the
+    // serialized summary otherwise. (Apps that need the body at SSR time
+    // should fetch the note through a per-route server fn instead, like
+    // luj-website's `get_note_bundle`.)
+    match ctx.notes_with_bodies().await {
         Ok(notes) => {
             let id_map = compute_id_map(&notes);
             let accessible_ids: HashSet<String> = notes

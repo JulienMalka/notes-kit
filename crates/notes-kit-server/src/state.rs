@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use crate::asset_repository::AssetRepository;
 use crate::config::SiteConfig;
+use crate::snapshot::SnapshotStore;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -11,4 +12,6 @@ pub struct AppState {
     pub authz_policy: Arc<dyn AuthzPolicy>,
     pub site_config: SiteConfig,
     pub asset_repository: Option<Arc<AssetRepository>>,
+    /// Public-corpus snapshots (anonymous grants only — see snapshot.rs).
+    pub corpus_snapshots: SnapshotStore,
 }

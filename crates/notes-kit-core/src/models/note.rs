@@ -26,9 +26,37 @@ pub struct Note {
     /// Precomputed HTML fragments for code blocks, keyed by a stable hash
     /// of (language, content). Filled server-side at cache load (e.g.
     /// syntax highlighting) and shipped with the note so server and
-    /// client render identical output.
+    /// client render identical output. Ordered map so the serialized form
+    /// is deterministic (the corpus snapshot URL hashes the bytes).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub highlights: Option<std::collections::HashMap<u64, String>>,
+    pub highlights: Option<std::collections::BTreeMap<u64, String>>,
+    /// Plain-text prose excerpt, precomputed at cache load so list pages,
+    /// cards, and hover previews render without the body.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub excerpt: Option<String>,
+    /// Estimated reading time in minutes, computed from the full body.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reading_minutes: Option<u16>,
+    /// Ids of the notes this note links to, extracted from the body at
+    /// cache load. Lets backlinks and link graphs be computed without any
+    /// note content. Sorted, so serialization is deterministic.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link_ids: Option<Vec<NoteId>>,
+    /// Structured fields parsed from the body's top property drawer (plus
+    /// format-specific extras such as an ABSTRACT section), for pages that
+    /// render fields rather than prose. Keys are uppercased.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub properties: Option<std::collections::BTreeMap<String, String>>,
+}
+
+/// Body-derived summary data a [`crate::traits::NoteFormat`] can attach to
+/// notes at load time. Everything here must be renderable without the body.
+#[derive(Debug, Clone, Default)]
+pub struct SummaryFields {
+    pub excerpt: Option<String>,
+    pub reading_minutes: Option<u16>,
+    pub link_ids: Option<Vec<NoteId>>,
+    pub properties: Option<std::collections::BTreeMap<String, String>>,
 }
 
 impl Note {
@@ -40,6 +68,27 @@ impl Note {
             metadata,
             effective_signature: None,
             highlights: None,
+            excerpt: None,
+            reading_minutes: None,
+            link_ids: None,
+            properties: None,
+        }
+    }
+
+    /// Copy of the note without body or highlights — the shape shipped in
+    /// the summary index and in backlink lists.
+    pub fn summary_entry(&self) -> Self {
+        Self {
+            path: self.path.clone(),
+            filename: self.filename.clone(),
+            content: None,
+            metadata: self.metadata.clone(),
+            effective_signature: self.effective_signature.clone(),
+            highlights: None,
+            excerpt: self.excerpt.clone(),
+            reading_minutes: self.reading_minutes,
+            link_ids: self.link_ids.clone(),
+            properties: self.properties.clone(),
         }
     }
 

@@ -4,5 +4,6 @@ pub mod cache;
 pub mod config;
 pub mod repository;
 pub mod serve;
+pub mod snapshot;
 pub mod state;
 pub mod storage;

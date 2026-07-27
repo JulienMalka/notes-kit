@@ -50,6 +50,7 @@ impl DefaultRepository {
         let content = self.storage.read_file(path).await?;
         let filename = path.rsplit('/').next().unwrap_or(path);
         let metadata = self.format.extract_metadata(&content, filename);
+        let summary = self.format.summary_fields(&content);
 
         let note = Note {
             path: path.to_string(),
@@ -58,6 +59,10 @@ impl DefaultRepository {
             metadata,
             effective_signature: None,
             highlights: None,
+            excerpt: summary.excerpt,
+            reading_minutes: summary.reading_minutes,
+            link_ids: summary.link_ids,
+            properties: summary.properties,
         };
         Ok(match &self.transform {
             Some(t) => t(note),

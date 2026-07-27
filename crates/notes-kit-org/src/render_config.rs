@@ -32,8 +32,11 @@ impl RenderContext {
         }
     }
 
-    pub fn with_highlights(mut self, highlights: Option<HashMap<u64, String>>) -> Self {
-        self.highlights = highlights.unwrap_or_default();
+    pub fn with_highlights(
+        mut self,
+        highlights: Option<std::collections::BTreeMap<u64, String>>,
+    ) -> Self {
+        self.highlights = highlights.map(|m| m.into_iter().collect()).unwrap_or_default();
         self
     }
 

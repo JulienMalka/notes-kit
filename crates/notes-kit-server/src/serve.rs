@@ -8,7 +8,7 @@ use crate::cache::NotesCache;
 use crate::config::ServerConfig;
 use crate::repository::DefaultRepository;
 use crate::state::AppState;
-use notes_kit_core::traits::{AuthzPolicy, StorageBackend};
+use notes_kit_core::traits::{AuthzPolicy, NoteRepository, StorageBackend};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ServeError {
@@ -85,10 +85,37 @@ where
         .map_err(|e| ServeError::Config(e.to_string()))?;
 
     let initial_hash = repository.global_version_hash();
-    let (version_tx, version_rx) = tokio::sync::watch::channel(initial_hash);
+
+    // Public corpus snapshot: anonymous grants ONLY (shared, unauthenticated
+    // artifact — see snapshot.rs). Built before serving starts so the hash
+    // can be announced from the first response.
+    let corpus_snapshots = crate::snapshot::SnapshotStore::default();
+    {
+        let anon_notes = repository
+            .list_accessible(&authz.anonymous_grants())
+            .await
+            .map_err(|e| ServeError::Config(format!("initial corpus snapshot: {e}")))?;
+        let snapshot = tokio::task::spawn_blocking(move || crate::snapshot::build_snapshot(anon_notes))
+            .await
+            .map_err(|e| ServeError::Config(format!("initial corpus snapshot: {e}")))?;
+        eprintln!(
+            "[corpus] snapshot {} ({} raw / {} br)",
+            snapshot.hash,
+            snapshot.raw.len(),
+            snapshot.br.len()
+        );
+        corpus_snapshots.publish(snapshot);
+    }
+
+    let (version_tx, version_rx) = tokio::sync::watch::channel(crate::snapshot::VersionInfo {
+        content_hash: initial_hash,
+        snapshot_hash: corpus_snapshots.current_hash(),
+    });
 
     {
         let repo = Arc::clone(&repository);
+        let authz = Arc::clone(&authz);
+        let corpus_snapshots = corpus_snapshots.clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
             let mut last_listing_hash: Option<u64> = None;
@@ -120,7 +147,33 @@ where
                         "[cache] change detected: hash {last_content_hash:#x} -> {hash:#x}, notes {old_count} -> {new_count}"
                     );
                     last_content_hash = hash;
-                    let _ = version_tx.send(hash);
+                    // Rebuild + publish the public snapshot BEFORE
+                    // announcing, so no client is told a hash that 404s.
+                    match repo.list_accessible(&authz.anonymous_grants()).await {
+                        Ok(anon_notes) => {
+                            match tokio::task::spawn_blocking(move || {
+                                crate::snapshot::build_snapshot(anon_notes)
+                            })
+                            .await
+                            {
+                                Ok(snapshot) => {
+                                    eprintln!(
+                                        "[corpus] snapshot {} ({} raw / {} br)",
+                                        snapshot.hash,
+                                        snapshot.raw.len(),
+                                        snapshot.br.len()
+                                    );
+                                    corpus_snapshots.publish(snapshot);
+                                }
+                                Err(e) => eprintln!("[corpus] snapshot build failed: {e}"),
+                            }
+                        }
+                        Err(e) => eprintln!("[corpus] snapshot listing failed: {e}"),
+                    }
+                    let _ = version_tx.send(crate::snapshot::VersionInfo {
+                        content_hash: hash,
+                        snapshot_hash: corpus_snapshots.current_hash(),
+                    });
                 }
             }
         });
@@ -173,6 +226,7 @@ where
         authz_policy: authz,
         site_config: config.site.clone(),
         asset_repository,
+        corpus_snapshots: corpus_snapshots.clone(),
     };
 
     let conf = get_configuration(None).unwrap();
@@ -248,7 +302,11 @@ where
         );
 
     let mut app = Router::new()
-        .route("/api/events/notes", axum::routing::get(sse_notes));
+        .route("/api/events/notes", axum::routing::get(sse_notes))
+        .route(
+            "/data/corpus/{file}",
+            axum::routing::get(crate::snapshot::serve_corpus),
+        );
 
     if app_state.asset_repository.is_some() {
         app = app.route("/assets/{*path}", axum::routing::get(serve_asset));
@@ -536,7 +594,9 @@ async fn serve_sitemap(
 }
 
 async fn sse_notes(
-    axum::Extension(mut rx): axum::Extension<tokio::sync::watch::Receiver<u64>>,
+    axum::Extension(mut rx): axum::Extension<
+        tokio::sync::watch::Receiver<crate::snapshot::VersionInfo>,
+    >,
 ) -> axum::response::sse::Sse<impl futures::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>>
 {
     // Mark the current value as seen so the first changed() only fires on *new* updates,
@@ -544,8 +604,12 @@ async fn sse_notes(
     rx.borrow_and_update();
     let stream = futures::stream::unfold(rx, |mut rx| async move {
         rx.changed().await.ok()?;
+        let info = rx.borrow().clone();
+        // JSON payload with the new public-snapshot hash; clients that
+        // predate it treat any message as a plain invalidation.
+        let data = serde_json::to_string(&info).unwrap_or_else(|_| "changed".to_string());
         Some((
-            Ok(axum::response::sse::Event::default().data("changed")),
+            Ok(axum::response::sse::Event::default().data(data)),
             rx,
         ))
     });

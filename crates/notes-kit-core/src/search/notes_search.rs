@@ -15,13 +15,24 @@ pub fn search_notes(notes: &[Note], query: &str) -> Vec<SearchResult> {
                 .title
                 .as_ref()
                 .is_some_and(|t| t.to_lowercase().contains(&query_lower));
-            let content_match = note.content_contains_lowercase(&query_lower);
+            // Body when present; precomputed excerpt as the degraded
+            // pre-backfill fallback so search stays useful on summaries.
+            let content_match = note.content_contains_lowercase(&query_lower)
+                || (note.content.is_none()
+                    && note
+                        .excerpt
+                        .as_ref()
+                        .is_some_and(|e| e.to_lowercase().contains(&query_lower)));
 
             if !title_match && !content_match {
                 return None;
             }
 
-            let snippet = note.snippet_around(query);
+            let snippet = if note.content.is_some() {
+                note.snippet_around(query)
+            } else {
+                note.excerpt.clone().unwrap_or_default()
+            };
 
             Some((title_match, SearchResult {
                 path: note.path.clone(),

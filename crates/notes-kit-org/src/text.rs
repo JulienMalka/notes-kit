@@ -164,6 +164,34 @@ pub fn parse_property<'a>(content: &'a str, key: &str) -> Option<&'a str> {
     None
 }
 
+/// All `:KEY: value` pairs from the same top property drawer that
+/// [`parse_property`] reads. Keys are returned as written; callers
+/// normalize case.
+pub fn parse_properties(content: &str) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    let mut in_drawer = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if !in_drawer {
+            if trimmed.is_empty() || trimmed.starts_with("#+") {
+                continue;
+            }
+            if trimmed == ":PROPERTIES:" {
+                in_drawer = true;
+                continue;
+            }
+            return out;
+        }
+        if trimmed == ":END:" {
+            return out;
+        }
+        let Some(after_first_colon) = line.trim_start().strip_prefix(':') else { continue };
+        let Some((k, after_key)) = after_first_colon.split_once(':') else { continue };
+        out.push((k.to_string(), after_key.trim().to_string()));
+    }
+    out
+}
+
 pub fn extract_section(content: &str, heading: &str) -> Option<String> {
     let mut buf = String::new();
     let mut in_target = false;
