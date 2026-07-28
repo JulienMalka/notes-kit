@@ -355,11 +355,22 @@ where
         None => app,
     };
 
+    // `/blog/` should serve `/blog` instead of the router's 404 — trim
+    // trailing slashes before routing. (Rewrites the URI; the canonical
+    // link tag keeps SEO pointed at the slashless form.)
+    let app = tower::Layer::layer(
+        &tower_http::normalize_path::NormalizePathLayer::trim_trailing_slash(),
+        app,
+    );
+
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .map_err(|e| ServeError::Server(e.to_string()))?;
     eprintln!("[server] Listening on http://{addr}");
-    axum::serve(listener, app.into_make_service())
+    axum::serve(
+        listener,
+        axum::ServiceExt::<axum::extract::Request>::into_make_service(app),
+    )
         .await
         .map_err(|e| ServeError::Server(e.to_string()))?;
 
@@ -486,6 +497,37 @@ struct SitemapConfig {
     static_paths: Vec<String>,
 }
 
+/// Percent-encode a URL path for the sitemap: the sitemap spec requires
+/// valid URIs, so non-ASCII (e.g. `ø` in a note slug) and other reserved
+/// bytes must be escaped. Keeps unreserved chars plus path-legal `/ = : @`.
+fn url_encode_path(path: &str) -> String {
+    let mut out = String::with_capacity(path.len());
+    for b in path.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/'
+            | b'=' | b':' | b'@' => out.push(b as char),
+            _ => out.push_str(&format!("%{b:02X}")),
+        }
+    }
+    out
+}
+
+/// `YYYY-MM-DD` from a denote filename's leading timestamp — the lastmod
+/// fallback for notes whose `#+date` is prose (e.g. a talk venue).
+fn date_from_denote_filename(filename: &str) -> Option<String> {
+    let b = filename.as_bytes();
+    if b.len() >= 8 && b[..8].iter().all(|c| c.is_ascii_digit()) {
+        Some(format!(
+            "{}-{}-{}",
+            &filename[..4],
+            &filename[4..6],
+            &filename[6..8]
+        ))
+    } else {
+        None
+    }
+}
+
 fn xml_escape(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
@@ -578,11 +620,17 @@ async fn serve_sitemap(
         if note.filename.contains("--index") {
             continue;
         }
-        let url = format!("{base}/notes/{}", note.path);
+        let url = format!("{base}/notes/{}", url_encode_path(&note.path));
         xml.push_str("  <url><loc>");
         xml.push_str(&xml_escape(&url));
         xml.push_str("</loc>");
-        if let Some(date) = note.metadata.date.as_deref().and_then(extract_iso_date) {
+        if let Some(date) = note
+            .metadata
+            .date
+            .as_deref()
+            .and_then(extract_iso_date)
+            .or_else(|| date_from_denote_filename(&note.filename))
+        {
             xml.push_str("<lastmod>");
             xml.push_str(&xml_escape(&date));
             xml.push_str("</lastmod>");
