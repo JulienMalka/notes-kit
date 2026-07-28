@@ -2,6 +2,7 @@ pub mod asset_repository;
 pub mod auth;
 pub mod cache;
 pub mod config;
+pub mod feed;
 pub mod repository;
 pub mod serve;
 pub mod snapshot;

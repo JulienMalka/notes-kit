@@ -15,6 +15,8 @@ pub struct ServerConfig {
     /// Static paths included in the sitemap in addition to public notes.
     /// Defaults to just "/". Paths should start with "/".
     pub sitemap_static_paths: Vec<String>,
+    /// Atom feed configuration; `None` disables /feed.xml.
+    pub feed: Option<crate::feed::FeedConfig>,
     /// Extra application routes merged into the server's router — lets
     /// the embedding site add endpoints (e.g. generated OG images)
     /// without forking the serve loop.
@@ -34,6 +36,7 @@ impl ServerConfig {
             user_db_path: ".users.db".to_string(),
             site: SiteConfig::default(),
             sitemap_base_url: None,
+            feed: None,
             sitemap_static_paths: vec!["/".to_string()],
             extra_router: None,
             note_transform: None,
@@ -52,6 +55,11 @@ impl ServerConfig {
 
     pub fn sitemap_base_url(mut self, url: impl Into<String>) -> Self {
         self.sitemap_base_url = Some(url.into());
+        self
+    }
+
+    pub fn feed(mut self, cfg: crate::feed::FeedConfig) -> Self {
+        self.feed = Some(cfg);
         self
     }
 

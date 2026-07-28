@@ -320,6 +320,11 @@ where
         app = app.route("/sitemap.xml", axum::routing::get(serve_sitemap));
     }
 
+    let feed_cfg = config.feed.clone();
+    if feed_cfg.is_some() {
+        app = app.route("/feed.xml", axum::routing::get(crate::feed::serve_feed));
+    }
+
     let app = app
         .leptos_routes_with_context(
             &leptos_options,
@@ -338,6 +343,7 @@ where
         .layer(axum::Extension(app_state))
         .layer(axum::Extension(version_rx))
         .layer(axum::Extension(sitemap_cfg))
+        .layer(axum::Extension(feed_cfg))
         .layer(auth_layer)
         .with_state(leptos_options);
 
