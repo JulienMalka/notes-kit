@@ -4,6 +4,7 @@ members = [
     "crates/notes-kit-core",
     "crates/notes-kit-server",
     "crates/notes-kit-org",
+    "crates/notes-kit-markdown",
     "crates/notes-kit-app",
     "examples/minimal",
 ]

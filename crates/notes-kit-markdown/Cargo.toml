@@ -1,0 +1,10 @@
+[package]
+name = "notes-kit-markdown"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+notes-kit-core = { path = "../notes-kit-core" }
+pulldown-cmark = { version = "0.13", default-features = false }
+leptos = "0.8"
+serde = { workspace = true }
